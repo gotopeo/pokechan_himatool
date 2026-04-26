@@ -5,9 +5,15 @@ import { getDefensiveMatchup } from '../data/type-chart'
 import { NATURE_MAP } from '../data/natures'
 import { MOVE_MAP } from '../data/moves'
 
-const IV = 31 // ポケチャン仕様: 個体値は常に V (31)
+const IV = 31 // ポケチャン仕様: 個体値概念なし（基準値として31扱い）
 
-/** ステータス実数値計算 */
+/**
+ * ステータス実数値計算（ポケチャン新ルール: 1ポイント=+1実数値、線形）
+ *
+ * - 配分上限: 各ステ32ポイント、合計66ポイント
+ * - 性格補正は基礎値部分にのみ乗算（その後に努力値ポイントを加算）
+ * - 個体値はゲーム上廃止だが、内部基準値として31を採用
+ */
 export function calcStat(
   base: number,
   ev: number,
@@ -16,13 +22,13 @@ export function calcStat(
   isHp = false
 ): number {
   if (isHp) {
-    // HP = floor((種族値×2 + IV + floor(EV/4)) × Level/100 + Level + 10)
-    return Math.floor((base * 2 + IV + Math.floor(ev / 4)) * level / 100 + level + 10)
+    // HP = floor((種族値×2 + IV) × Level/100 + Level + 10) + EV
+    return Math.floor((base * 2 + IV) * level / 100 + level + 10) + ev
   }
-  // 他 = floor(floor((種族値×2 + IV + floor(EV/4)) × Level/100 + 5) × 性格補正)
+  // 他 = floor(floor((種族値×2 + IV) × Level/100 + 5) × 性格補正) + EV
   return Math.floor(
-    Math.floor((base * 2 + IV + Math.floor(ev / 4)) * level / 100 + 5) * natureMul
-  )
+    Math.floor((base * 2 + IV) * level / 100 + 5) * natureMul
+  ) + ev
 }
 
 /** ランク補正の倍率 */

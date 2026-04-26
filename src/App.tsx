@@ -5,16 +5,20 @@ import { TypeMatrix } from './components/TypeMatrix/TypeMatrix'
 import { SpeedComparison } from './components/SpeedComparison/SpeedComparison'
 import { DamageCalculator } from './components/DamageCalculator/DamageCalculator'
 import { PartyEditor } from './components/PartyEditor/PartyEditor'
+import { PokemonRegistry } from './components/PokemonRegistry/PokemonRegistry'
+import { SelectionPredictor } from './components/SelectionPredictor/SelectionPredictor'
 import { PartyShare } from './components/PartyShare/PartyShare'
 
-type Tab = 'party' | 'type' | 'speed' | 'damage' | 'share'
+type Tab = 'party' | 'registry' | 'type' | 'speed' | 'damage' | 'predict' | 'share'
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
-  { id: 'party',  label: 'パーティ', icon: '👥' },
-  { id: 'type',   label: 'タイプ相性', icon: '🔵' },
-  { id: 'speed',  label: '素早さ',    icon: '⚡' },
-  { id: 'damage', label: 'ダメ計',    icon: '⚔️' },
-  { id: 'share',  label: '共有',      icon: '🔗' },
+  { id: 'party',    label: 'パーティ',    icon: '👥' },
+  { id: 'registry', label: 'ポケモン管理', icon: '📋' },
+  { id: 'type',     label: 'タイプ相性',  icon: '🔵' },
+  { id: 'speed',    label: '素早さ',      icon: '⚡' },
+  { id: 'damage',   label: 'ダメ計',      icon: '⚔️' },
+  { id: 'predict',  label: '選出予測',    icon: '🎯' },
+  { id: 'share',    label: '共有',        icon: '🔗' },
 ]
 
 function AppInner() {
@@ -67,11 +71,13 @@ function AppInner() {
 
       {/* メインコンテンツ */}
       <main className="max-w-4xl mx-auto px-4 py-5">
-        {tab === 'party'  && <PartyEditor />}
-        {tab === 'type'   && <TypeMatrix />}
-        {tab === 'speed'  && <SpeedComparison />}
-        {tab === 'damage' && <DamageCalculator />}
-        {tab === 'share'  && <PartyShare />}
+        {tab === 'party'    && <PartyEditor />}
+        {tab === 'registry' && <PokemonRegistry />}
+        {tab === 'type'     && <TypeMatrix />}
+        {tab === 'speed'    && <SpeedComparison />}
+        {tab === 'damage'   && <DamageCalculator />}
+        {tab === 'predict'  && <SelectionPredictor />}
+        {tab === 'share'    && <PartyShare />}
       </main>
     </div>
   )

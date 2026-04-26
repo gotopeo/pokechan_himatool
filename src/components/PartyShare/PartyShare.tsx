@@ -3,8 +3,7 @@ import { useParty } from '../../store/party-context'
 import { clearPokemonCache } from '../../lib/pokeapi'
 
 export function PartyShare() {
-  const { state, generateShareUrl, dispatch } = useParty()
-  const { members } = state
+  const { state, members, generateShareUrl, dispatch } = useParty()
   const [copied, setCopied] = useState(false)
 
   async function handleCopy() {
@@ -114,7 +113,8 @@ export function PartyShare() {
       <div className="border border-yellow-200 dark:border-yellow-700 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-4 space-y-2 text-xs text-yellow-800 dark:text-yellow-200">
         <h3 className="font-bold">⚡ ポケチャン仕様メモ</h3>
         <ul className="list-disc list-inside space-y-1">
-          <li>個体値の概念なし（計算は常にV=31として扱う）</li>
+          <li>個体値の概念なし（基準値として31扱い）</li>
+          <li><strong>個体強化ポイント</strong>: 各ステ最大32／合計最大66／<strong>1pt = 実数値+1</strong>（線形）</li>
           <li>メガシンカ使用可、テラスタル/ダイマックスは使用不可</li>
           <li><strong>まひ</strong>: 技が出せない確率は <strong>12.5%</strong>（本編の25%から緩和）</li>
           <li><strong>こおり</strong>: 技使用時25%で回復、3ターン目に必ず回復</li>

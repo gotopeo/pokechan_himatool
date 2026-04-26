@@ -3,14 +3,15 @@ import type { PokemonType } from '../data/type-chart'
 import { REGULATION_POKEMON, MEGA_FORMS, CHAMPIONS_EXCLUSIVE_MEGAS, DEV_SUBSET_IDS } from '../data/regulation-m-a'
 
 const POKEAPI_BASE = 'https://pokeapi.co/api/v2'
-const CACHE_KEY = 'pokechan_pokemon_cache_v6'
-const CACHE_VERSION = 6
+const CACHE_KEY = 'pokechan_pokemon_cache_v7'
+const CACHE_VERSION = 7
 
 const USE_DEV_SUBSET = false
 
 interface CacheData {
   version: number
   pokemon: PokemonData[]
+  abilityJaNames: Record<string, string>
 }
 
 const TYPE_EN_JA: Record<string, PokemonType> = {
@@ -153,6 +154,46 @@ async function fetchBatch(
   return results
 }
 
+/** 1特性の日本語名を取得（失敗時はnull） */
+async function fetchAbilityJaName(slug: string): Promise<string | null> {
+  try {
+    const res = await fetchWithRetry(`${POKEAPI_BASE}/ability/${slug}`)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const data: any = await res.json()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const entry = data?.names?.find((n: any) =>
+      n.language.name === 'ja-hrkt' || n.language.name === 'ja-Hrkt' || n.language.name === 'ja'
+    )
+    return entry?.name ?? null
+  } catch {
+    return null
+  }
+}
+
+/** 全特性スラッグの日本語名マップを並列取得 */
+async function fetchAbilityJaMap(
+  slugs: string[],
+  onProgress?: (loaded: number, total: number) => void
+): Promise<Record<string, string>> {
+  const BATCH = 8
+  const DELAY = 100
+  const map: Record<string, string> = {}
+
+  for (let i = 0; i < slugs.length; i += BATCH) {
+    const batch = slugs.slice(i, i + BATCH)
+    const fetched = await Promise.all(batch.map(s => fetchAbilityJaName(s).then(name => [s, name] as const)))
+    for (const [slug, name] of fetched) {
+      if (name) map[slug] = name
+    }
+    onProgress?.(Math.min(i + BATCH, slugs.length), slugs.length)
+    if (i + BATCH < slugs.length) {
+      await new Promise(r => setTimeout(r, DELAY))
+    }
+  }
+
+  return map
+}
+
 /** ポケチャン独自メガ進化をベース形態のデータで生成 */
 function createExclusiveMegas(allPokemon: PokemonData[]): PokemonData[] {
   const byName = new Map(allPokemon.map(p => [p.name, p]))
@@ -163,46 +204,62 @@ function createExclusiveMegas(allPokemon: PokemonData[]): PokemonData[] {
   })
 }
 
-/** 全ポケモンを取得 */
+/** 全ポケモン＋特性日本語マップを取得 */
 async function fetchAllPokemon(
   onProgress?: (loaded: number, total: number) => void
-): Promise<PokemonData[]> {
+): Promise<{ pokemon: PokemonData[]; abilityJaNames: Record<string, string> }> {
   const normalTargets: (string | number)[] = USE_DEV_SUBSET
     ? DEV_SUBSET_IDS
     : REGULATION_POKEMON
 
-  const total = normalTargets.length + MEGA_FORMS.length
+  // 進捗：ポケモン取得 + 特性取得 を合算
+  const pokemonTotal = normalTargets.length + MEGA_FORMS.length
+  // 特性総数は事前に分からないのでざっくり見積（300）
+  const estimatedAbilityTotal = 200
+  const grandTotal = pokemonTotal + estimatedAbilityTotal
 
-  // 通常ポケモン取得
   const normalPokemon = await fetchBatch(normalTargets, (loaded) => {
-    onProgress?.(loaded, total)
+    onProgress?.(loaded, grandTotal)
   })
 
-  // メガ進化取得
   const megaPokemon = await fetchBatch(MEGA_FORMS, (loaded) => {
-    onProgress?.(normalTargets.length + loaded, total)
+    onProgress?.(normalTargets.length + loaded, grandTotal)
   })
 
   const exclusiveMegas = createExclusiveMegas([...normalPokemon, ...megaPokemon])
+  const allPokemon = [...normalPokemon, ...megaPokemon, ...exclusiveMegas]
 
-  return [...normalPokemon, ...megaPokemon, ...exclusiveMegas]
+  // 特性スラッグを集めて並列取得
+  const slugSet = new Set<string>()
+  for (const p of allPokemon) {
+    for (const a of p.abilities) slugSet.add(a.name)
+  }
+  const slugs = Array.from(slugSet)
+  const abilityJaNames = await fetchAbilityJaMap(slugs, (loaded) => {
+    onProgress?.(pokemonTotal + Math.round((loaded / slugs.length) * estimatedAbilityTotal), grandTotal)
+  })
+
+  // 完了時は確実に100%
+  onProgress?.(grandTotal, grandTotal)
+
+  return { pokemon: allPokemon, abilityJaNames }
 }
 
-function loadCache(): PokemonData[] | null {
+function loadCache(): { pokemon: PokemonData[]; abilityJaNames: Record<string, string> } | null {
   try {
     const raw = localStorage.getItem(CACHE_KEY)
     if (!raw) return null
     const cache: CacheData = JSON.parse(raw)
     if (cache.version !== CACHE_VERSION) return null
-    return cache.pokemon
+    return { pokemon: cache.pokemon, abilityJaNames: cache.abilityJaNames ?? {} }
   } catch {
     return null
   }
 }
 
-function saveCache(pokemon: PokemonData[]): void {
+function saveCache(pokemon: PokemonData[], abilityJaNames: Record<string, string>): void {
   try {
-    localStorage.setItem(CACHE_KEY, JSON.stringify({ version: CACHE_VERSION, pokemon }))
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ version: CACHE_VERSION, pokemon, abilityJaNames }))
   } catch {
     // quota超過など無視
   }
@@ -210,23 +267,23 @@ function saveCache(pokemon: PokemonData[]): void {
 
 export function clearPokemonCache(): void {
   // 旧バージョンのキャッシュも削除
-  for (let v = 1; v <= 6; v++) {
+  for (let v = 1; v <= 7; v++) {
     localStorage.removeItem(`pokechan_pokemon_cache_v${v}`)
   }
 }
 
 export async function loadAllPokemon(
   onProgress?: (loaded: number, total: number) => void
-): Promise<PokemonData[]> {
+): Promise<{ pokemon: PokemonData[]; abilityJaNames: Record<string, string> }> {
   const cached = loadCache()
-  if (cached && cached.length > 0) {
-    onProgress?.(cached.length, cached.length)
+  if (cached && cached.pokemon.length > 0) {
+    onProgress?.(cached.pokemon.length, cached.pokemon.length)
     return cached
   }
 
-  const pokemon = await fetchAllPokemon(onProgress)
-  saveCache(pokemon)
-  return pokemon
+  const result = await fetchAllPokemon(onProgress)
+  saveCache(result.pokemon, result.abilityJaNames)
+  return result
 }
 
 export function searchPokemon(pokemon: PokemonData[], query: string): PokemonData[] {

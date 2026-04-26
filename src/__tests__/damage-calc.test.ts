@@ -53,36 +53,49 @@ function makeMember(data: PokemonData, evs: Partial<PartyMember['evs']> = {}, na
   }
 }
 
-describe('ステータス実数値計算', () => {
-  it('HP: カイリュー Lv50 HP無振り → 167', () => {
-    // floor((91×2 + 31 + 0) × 50/100 + 50 + 10) = floor(213×0.5 + 60) = floor(106.5 + 60) = 166...
-    // 実際: floor((91*2 + 31 + 0) * 50/100 + 60) = floor(106.5 + 60) = 166 + 10 = 小数なし = 166?
-    // HP = floor((base×2 + IV + floor(EV/4)) × Level/100 + Level + 10)
-    // = floor((91×2 + 31 + 0) × 50/100 + 50 + 10) = floor(213×0.5 + 60) = floor(106.5 + 60) = 166
+describe('ステータス実数値計算（ポケチャン: 1pt=+1）', () => {
+  it('HP: カイリュー Lv50 HP無振り → 166', () => {
+    // floor((91×2 + 31) × 50/100 + 50 + 10) + 0
+    // = floor(213×0.5 + 60) = floor(106.5 + 60) = 166
     const hp = calcStat(91, 0, 50, 1, true)
-    expect(hp).toBeGreaterThan(150)
-    expect(hp).toBeLessThan(200)
+    expect(hp).toBe(166)
   })
 
-  it('A実数値: いじっぱりカイリュー A252振り Lv50', () => {
-    // floor(floor((134×2 + 31 + 63) × 50/100 + 5) × 1.1)
-    // = floor(floor(362×0.5 + 5) × 1.1) = floor(floor(181 + 5) × 1.1) = floor(186 × 1.1) = floor(204.6) = 204
-    const atk = calcStat(134, 252, 50, 1.1)
-    expect(atk).toBe(204)
+  it('HP: カイリュー Lv50 HP32振り → 198', () => {
+    const hp = calcStat(91, 32, 50, 1, true)
+    expect(hp).toBe(166 + 32)
   })
 
-  it('B実数値: ずぶといガブリアス B0振り Lv50', () => {
-    // floor(floor((95×2 + 31 + 0) × 50/100 + 5) × 1.1)
-    // = floor(floor(221×0.5 + 5) × 1.1) = floor(floor(110.5 + 5) × 1.1) = floor(115 × 1.1) = floor(126.5) = 126
+  it('A実数値: いじっぱりカイリュー A32振り Lv50', () => {
+    // floor(floor((134×2 + 31) × 50/100 + 5) × 1.1) + 32
+    // = floor(floor(299×0.5 + 5) × 1.1) + 32
+    // = floor(154 × 1.1) + 32 = floor(169.4) + 32 = 169 + 32 = 201
+    const atk = calcStat(134, 32, 50, 1.1)
+    expect(atk).toBe(201)
+  })
+
+  it('B実数値: ずぶといガブリアス B0振り Lv50 → 126', () => {
+    // floor(floor((95×2 + 31) × 50/100 + 5) × 1.1) + 0
+    // = floor(floor(110.5 + 5) × 1.1) = floor(115 × 1.1) = floor(126.5) = 126
     const def = calcStat(95, 0, 50, 1.1)
     expect(def).toBe(126)
+  })
+
+  it('1ポイント = +1実数値（線形性）', () => {
+    const a = calcStat(100, 0, 50, 1)
+    const b = calcStat(100, 1, 50, 1)
+    const c = calcStat(100, 16, 50, 1)
+    const d = calcStat(100, 32, 50, 1)
+    expect(b - a).toBe(1)
+    expect(c - a).toBe(16)
+    expect(d - a).toBe(32)
   })
 })
 
 describe('ダメージ計算', () => {
   it('乱数16通りが存在する', () => {
-    const attacker = makeMember(dragoniteData, { atk: 252 }, 'いじっぱり')
-    const defender = makeMember(tyranitarData, { def: 252, hp: 252 }, 'ずぶとい')
+    const attacker = makeMember(dragoniteData, { atk: 32 }, 'いじっぱり')
+    const defender = makeMember(tyranitarData, { def: 32, hp: 32 }, 'ずぶとい')
 
     const input: DamageInput = {
       attacker,
@@ -106,7 +119,7 @@ describe('ダメージ計算', () => {
   })
 
   it('乱数の最大値 >= 最小値', () => {
-    const attacker = makeMember(dragoniteData, { atk: 252 }, 'いじっぱり')
+    const attacker = makeMember(dragoniteData, { atk: 32 }, 'いじっぱり')
     const defender = makeMember(garchompData, {}, 'おくびょう')
 
     const input: DamageInput = {
@@ -130,7 +143,7 @@ describe('ダメージ計算', () => {
   })
 
   it('乱数の平均値は最小〜最大の間', () => {
-    const attacker = makeMember(dragoniteData, { atk: 252 }, 'いじっぱり')
+    const attacker = makeMember(dragoniteData, { atk: 32 }, 'いじっぱり')
     const defender = makeMember(garchompData)
 
     const input: DamageInput = {
@@ -155,7 +168,7 @@ describe('ダメージ計算', () => {
   })
 
   it('タイプ無効技はダメージ0', () => {
-    const attacker = makeMember(garchompData, { atk: 252 }, 'いじっぱり')
+    const attacker = makeMember(garchompData, { atk: 32 }, 'いじっぱり')
     const defender = makeMember(dragoniteData)  // ひこうタイプ → じめん無効
 
     const input: DamageInput = {
@@ -179,8 +192,8 @@ describe('ダメージ計算', () => {
   })
 
   it('急所時はダメージが増加する', () => {
-    const attacker = makeMember(dragoniteData, { atk: 252 }, 'いじっぱり')
-    const defender = makeMember(tyranitarData, { def: 252, hp: 252 }, 'ずぶとい')
+    const attacker = makeMember(dragoniteData, { atk: 32 }, 'いじっぱり')
+    const defender = makeMember(tyranitarData, { def: 32, hp: 32 }, 'ずぶとい')
 
     const baseInput: DamageInput = {
       attacker, defender, moveName: 'じしん',
@@ -196,7 +209,7 @@ describe('ダメージ計算', () => {
   })
 
   it('はれ時のほのお技は威力1.5倍になる', () => {
-    const attacker = makeMember(dragoniteData, { spAtk: 252 }, 'ひかえめ')
+    const attacker = makeMember(dragoniteData, { spAtk: 32 }, 'ひかえめ')
     const defender = makeMember(garchompData)
 
     const normalInput: DamageInput = {

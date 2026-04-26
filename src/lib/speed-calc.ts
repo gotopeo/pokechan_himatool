@@ -124,18 +124,16 @@ export function calcSpeedComparison(
   return results
 }
 
-/** 素早さラインを達成するために必要なEV・性格補正の逆算 */
+/** 素早さラインを達成するために必要なポイント（1pt=+1実数値、最大32）の逆算 */
 export function reverseCalcSpeedEV(
   baseStat: number,
   targetRealStat: number,
   level: number,
   natureMul: number
 ): number {
-  // realStat = floor(floor((base×2 + IV + floor(EV/4)) × Level/100 + 5) × nature)
-  // を EV について解く（近似）
-  for (let ev = 0; ev <= 252; ev += 4) {
+  for (let ev = 0; ev <= 32; ev += 1) {
     const real = calcStat(baseStat, ev, level, natureMul)
     if (real >= targetRealStat) return ev
   }
-  return 252
+  return 32
 }

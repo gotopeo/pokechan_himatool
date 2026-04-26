@@ -17,8 +17,8 @@ export function PokemonCombobox({ allPokemon, value, onChange, placeholder = 'ãƒ
   const listRef = useRef<HTMLUListElement>(null)
 
   const filtered = query.trim()
-    ? searchPokemon(allPokemon, query).slice(0, 50)
-    : allPokemon.slice(0, 50)
+    ? searchPokemon(allPokemon, query)
+    : allPokemon
 
   useEffect(() => {
     setHighlighted(0)

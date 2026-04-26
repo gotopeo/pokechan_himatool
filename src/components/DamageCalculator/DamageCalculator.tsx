@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { useParty } from '../../store/party-context'
 import { calcDamage } from '../../lib/damage-calc'
 import { HARDCODED_MOVES, MOVE_NAMES } from '../../data/moves'
+import { OpponentPartyEditor } from '../shared/OpponentPartyEditor'
 import type { DamageInput, RankModifier, Weather, Field, PartyMember } from '../../types/pokemon'
 
 const WEATHER_OPTIONS: Weather[] = ['なし', 'はれ', 'あめ', 'すなあらし', 'あられ']
@@ -22,8 +23,9 @@ function RankSelect({ value, onChange }: { value: RankModifier; onChange: (v: Ra
   )
 }
 
-function PokemonSelect({ members, value, onChange, label }: {
-  members: PartyMember[]
+function PokemonSelect({ ownMembers, oppMembers, value, onChange, label }: {
+  ownMembers: PartyMember[]
+  oppMembers: PartyMember[]
   value: string
   onChange: (id: string) => void
   label: string
@@ -37,11 +39,24 @@ function PokemonSelect({ members, value, onChange, label }: {
         className="w-full border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-white"
       >
         <option value="">--- 選択 ---</option>
-        {members.filter(m => m.data).map(m => (
-          <option key={m.id} value={m.id}>
-            {m.jaName}（Lv{m.level} / {m.nature}）
-          </option>
-        ))}
+        {ownMembers.length > 0 && (
+          <optgroup label="自分">
+            {ownMembers.filter(m => m.data).map(m => (
+              <option key={m.id} value={m.id}>
+                {m.jaName}（Lv{m.level} / {m.nature}）
+              </option>
+            ))}
+          </optgroup>
+        )}
+        {oppMembers.length > 0 && (
+          <optgroup label="相手">
+            {oppMembers.filter(m => m.data).map(m => (
+              <option key={m.id} value={m.id}>
+                {m.jaName}（Lv{m.level} / {m.nature}）
+              </option>
+            ))}
+          </optgroup>
+        )}
       </select>
     </div>
   )
@@ -72,9 +87,11 @@ function DamageBar({ rolls, defHp }: { rolls: number[]; defHp: number }) {
 }
 
 export function DamageCalculator() {
-  const { state } = useParty()
-  const { members } = state
-  const validMembers = members.filter(m => m.data)
+  const { members, state } = useParty()
+  const { opponentMembers } = state
+  const validOwn = members.filter(m => m.data)
+  const validOpp = opponentMembers.filter(m => m.data)
+  const allValid = [...validOwn, ...validOpp]
 
   const [attackerId, setAttackerId] = useState<string>('')
   const [defenderId, setDefenderId] = useState<string>('')
@@ -90,8 +107,8 @@ export function DamageCalculator() {
   const [defHpRatio, setDefHpRatio] = useState(1)
   const [atkIsMega,  setAtkIsMega]  = useState(false)
 
-  const attacker = validMembers.find(m => m.id === attackerId)
-  const defender = validMembers.find(m => m.id === defenderId)
+  const attacker = allValid.find(m => m.id === attackerId)
+  const defender = allValid.find(m => m.id === defenderId)
   const moveData  = HARDCODED_MOVES.find(mv => mv.name === moveName)
 
   const result = useMemo(() => {
@@ -118,11 +135,14 @@ export function DamageCalculator() {
     <div className="space-y-5">
       <h2 className="text-lg font-bold text-gray-800 dark:text-white">ダメージ計算</h2>
 
+      {/* 相手パーティ管理 */}
+      <OpponentPartyEditor />
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* 攻撃側 */}
         <div className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg space-y-3 bg-red-50 dark:bg-red-900/20">
           <h3 className="font-semibold text-red-700 dark:text-red-300 text-sm">⚔ 攻撃側</h3>
-          <PokemonSelect members={validMembers} value={attackerId} onChange={setAttackerId} label="ポケモン" />
+          <PokemonSelect ownMembers={validOwn} oppMembers={validOpp} value={attackerId} onChange={setAttackerId} label="ポケモン（自分/相手）" />
           {attacker?.megaData && (
             <label className="flex items-center gap-2 text-xs cursor-pointer">
               <input
@@ -148,7 +168,7 @@ export function DamageCalculator() {
         {/* 防御側 */}
         <div className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg space-y-3 bg-blue-50 dark:bg-blue-900/20">
           <h3 className="font-semibold text-blue-700 dark:text-blue-300 text-sm">🛡 防御側</h3>
-          <PokemonSelect members={validMembers} value={defenderId} onChange={setDefenderId} label="ポケモン" />
+          <PokemonSelect ownMembers={validOwn} oppMembers={validOpp} value={defenderId} onChange={setDefenderId} label="ポケモン（自分/相手）" />
           <div className="flex flex-wrap gap-3 text-xs">
             <label className="flex items-center gap-1">
               <span className="text-gray-500">Bランク</span>
