@@ -41,6 +41,9 @@ export interface EVs {
   spd: number
 }
 
+/** 登録ポケモンの用途タグ */
+export type RegistryUsage = 'own' | 'opp' | 'both'
+
 /** パーティ1匹分のデータ */
 export interface PartyMember {
   id: string            // ユニークID (UUID)
@@ -53,6 +56,10 @@ export interface PartyMember {
   moves: string[]       // 最大4つ
   evs: EVs
   isMega: boolean       // メガシンカ後で計算するか
+  /** 用途タグ（自分用/相手用/共用、デフォルト: both） */
+  usage: RegistryUsage
+  /** 備考（型のメモ。例: 「AS全振り」「物理スカーフ型」） */
+  notes: string
   // ポケモンデータへの参照（ロード済み）
   data?: PokemonData
   megaData?: PokemonData

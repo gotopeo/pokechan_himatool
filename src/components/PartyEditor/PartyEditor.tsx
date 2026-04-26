@@ -62,6 +62,11 @@ function SortableSlot({ member, onRemove }: SlotProps) {
             Lv{member.level} / {member.nature}
           </span>
         </div>
+        {member.notes && (
+          <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate" title={member.notes}>
+            📝 {member.notes}
+          </div>
+        )}
         <div className="flex gap-1 flex-wrap mt-0.5">
           {data?.types.map(t => <TypeBadge key={t} type={t} size="sm" />)}
         </div>
@@ -100,7 +105,8 @@ export function PartyEditor() {
   }
 
   const partySet = new Set(members.map(m => m.id))
-  const candidates = registry.filter(m => !partySet.has(m.id))
+  // 自分パーティの候補は「自分用 + 共用」（相手専用は除外）
+  const candidates = registry.filter(m => !partySet.has(m.id) && m.usage !== 'opp')
   const partyFull = members.length >= 6
 
   return (
@@ -169,6 +175,11 @@ export function PartyEditor() {
                 <div className="text-xs text-gray-400 truncate">
                   Lv{m.level} / {m.nature}
                 </div>
+                {m.notes && (
+                  <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate" title={m.notes}>
+                    📝 {m.notes}
+                  </div>
+                )}
               </div>
             </button>
           ))}

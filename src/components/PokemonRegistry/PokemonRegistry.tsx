@@ -5,9 +5,23 @@ import { TypeBadge } from '../shared/TypeBadge'
 import { NATURES } from '../../data/natures'
 import { ITEM_NAMES } from '../../data/items'
 import { HARDCODED_MOVES, MOVE_NAMES } from '../../data/moves'
-import type { PartyMember } from '../../types/pokemon'
+import type { PartyMember, RegistryUsage } from '../../types/pokemon'
 import type { NatureName } from '../../data/natures'
 import type { EVKey } from '../../types/pokemon'
+
+const USAGE_OPTIONS: { value: RegistryUsage; label: string; badge: string }[] = [
+  { value: 'both', label: '共用',   badge: 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-200' },
+  { value: 'own',  label: '自分用', badge: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200' },
+  { value: 'opp',  label: '相手用', badge: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-200' },
+]
+
+function usageBadgeClass(usage: RegistryUsage): string {
+  return USAGE_OPTIONS.find(u => u.value === usage)?.badge ?? USAGE_OPTIONS[0].badge
+}
+
+function usageLabel(usage: RegistryUsage): string {
+  return USAGE_OPTIONS.find(u => u.value === usage)?.label ?? '共用'
+}
 
 const EV_KEYS: { key: EVKey; label: string }[] = [
   { key: 'hp',    label: 'H' },
@@ -46,12 +60,22 @@ function RegistryRow({ member, inParty, partyFull, onToggleParty, onUpdate, onRe
         )}
 
         <div className="flex-1 min-w-0">
-          <div className="font-semibold text-gray-800 dark:text-white text-sm">
-            {data?.jaName ?? member.jaName}
-            <span className="ml-2 text-xs text-gray-400 font-normal">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className={`text-[10px] px-1.5 py-0.5 rounded ${usageBadgeClass(member.usage)}`}>
+              {usageLabel(member.usage)}
+            </span>
+            <span className="font-semibold text-gray-800 dark:text-white text-sm">
+              {data?.jaName ?? member.jaName}
+            </span>
+            <span className="text-xs text-gray-400 font-normal">
               Lv{member.level} / {member.nature}
             </span>
           </div>
+          {member.notes && (
+            <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate" title={member.notes}>
+              📝 {member.notes}
+            </div>
+          )}
           <div className="flex gap-1 flex-wrap mt-0.5">
             {data?.types.map(t => <TypeBadge key={t} type={t} size="sm" />)}
           </div>
@@ -91,6 +115,33 @@ function RegistryRow({ member, inParty, partyFull, onToggleParty, onUpdate, onRe
 
       {expanded && (
         <div className="px-4 pb-4 space-y-3 border-t border-gray-100 dark:border-gray-700 pt-3">
+          {/* 用途タグ */}
+          <label className="flex items-center gap-2 text-sm">
+            <span className="text-gray-500 w-16">用途</span>
+            <select
+              value={member.usage}
+              onChange={e => onUpdate({ usage: e.target.value as RegistryUsage })}
+              className="flex-1 border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-800 dark:text-white"
+            >
+              {USAGE_OPTIONS.map(u => (
+                <option key={u.value} value={u.value}>{u.label}</option>
+              ))}
+            </select>
+          </label>
+
+          {/* 備考 */}
+          <label className="flex items-start gap-2 text-sm">
+            <span className="text-gray-500 w-16 pt-1">備考</span>
+            <input
+              type="text"
+              value={member.notes}
+              onChange={e => onUpdate({ notes: e.target.value })}
+              placeholder="例: AS全振り、HD特殊受け、スカーフ型"
+              maxLength={60}
+              className="flex-1 border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-800 dark:text-white"
+            />
+          </label>
+
           {/* レベル */}
           <label className="flex items-center gap-2 text-sm">
             <span className="text-gray-500 w-16">レベル</span>
@@ -224,6 +275,8 @@ function RegistryRow({ member, inParty, partyFull, onToggleParty, onUpdate, onRe
   )
 }
 
+type UsageFilter = 'all' | RegistryUsage
+
 export function PokemonRegistry() {
   const {
     state,
@@ -237,6 +290,15 @@ export function PokemonRegistry() {
   const partySet = new Set(partyIds)
   const partyFull = partyIds.length >= 6
 
+  const [usageFilter, setUsageFilter] = useState<UsageFilter>('all')
+  // 'own'/'opp' フィルタは「専用 + 共用」をまとめて表示する
+  const visibleRegistry = (() => {
+    if (usageFilter === 'all')  return registry
+    if (usageFilter === 'both') return registry.filter(m => m.usage === 'both')
+    if (usageFilter === 'own')  return registry.filter(m => m.usage === 'own' || m.usage === 'both')
+    return registry.filter(m => m.usage === 'opp' || m.usage === 'both')
+  })()
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
@@ -249,8 +311,36 @@ export function PokemonRegistry() {
       </div>
 
       <p className="text-xs text-gray-500 dark:text-gray-400">
-        対戦で使うポケモンを事前登録します。「パーティ」チェックでパーティに加わります（最大6体）。
+        対戦で使うポケモンを事前登録します。「パーティ」チェックで自分パーティに、相手パーティへは「素早さ／ダメ計／タイプ相性」タブの相手追加から登録済みを選べます。
       </p>
+
+      {/* 用途フィルター */}
+      <div className="flex gap-1 border border-gray-200 dark:border-gray-700 rounded-lg p-1 bg-gray-50 dark:bg-gray-800 w-fit text-xs">
+        {([
+          ['all',  '全て'],
+          ['own',  '自分用'],
+          ['opp',  '相手用'],
+          ['both', '共用'],
+        ] as Array<[UsageFilter, string]>).map(([v, label]) => (
+          <button
+            key={v}
+            onClick={() => setUsageFilter(v)}
+            className={`px-3 py-1 rounded ${
+              usageFilter === v
+                ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-300 font-semibold shadow-sm'
+                : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-200'
+            }`}
+          >
+            {label}
+            <span className="ml-1 text-[10px] text-gray-400">
+              ({v === 'all' ? registry.length :
+                v === 'both' ? registry.filter(m => m.usage === 'both').length :
+                v === 'own' ? registry.filter(m => m.usage === 'own' || m.usage === 'both').length :
+                registry.filter(m => m.usage === 'opp' || m.usage === 'both').length})
+            </span>
+          </button>
+        ))}
+      </div>
 
       {/* ポケモン追加 */}
       <div className="p-3 border border-dashed border-gray-300 dark:border-gray-600 rounded-lg">
@@ -262,9 +352,9 @@ export function PokemonRegistry() {
         />
       </div>
 
-      {/* 登録一覧 */}
+      {/* 登録一覧（フィルター適用後） */}
       <div className="space-y-3">
-        {registry.map(m => (
+        {visibleRegistry.map(m => (
           <RegistryRow
             key={m.id}
             member={m}
@@ -281,6 +371,11 @@ export function PokemonRegistry() {
       {registry.length === 0 && (
         <div className="text-center py-10 text-gray-400 text-sm">
           まだポケモンが登録されていません。上の検索から追加してください。
+        </div>
+      )}
+      {registry.length > 0 && visibleRegistry.length === 0 && (
+        <div className="text-center py-6 text-gray-400 text-sm border border-dashed border-gray-300 dark:border-gray-600 rounded-lg">
+          このフィルターに該当する登録ポケモンはありません。
         </div>
       )}
     </div>

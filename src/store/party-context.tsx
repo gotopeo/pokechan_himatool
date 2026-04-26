@@ -182,6 +182,8 @@ interface PartyContextValue {
   reorderPartyIds: (ids: string[]) => void
   // opponent
   addOpponent: (pokemon: PokemonData) => void
+  /** 登録済みポケモンを相手パーティへコピーで追加 */
+  addOpponentFromRegistry: (registryId: string) => void
   removeOpponent: (id: string) => void
   updateOpponent: (id: string, patch: Partial<PartyMember>) => void
   reorderOpponent: (members: PartyMember[]) => void
@@ -206,7 +208,22 @@ function makeMember(pokemon: PokemonData): PartyMember {
     moves:       [],
     evs:         { hp: 0, atk: 0, def: 0, spAtk: 0, spDef: 0, spd: 0 },
     isMega:      false,
+    usage:       'both',
+    notes:       '',
     data:        pokemon,
+  }
+}
+
+/** 登録済みポケモンを相手パーティ用にディープコピーする（新ID発行） */
+function copyForOpponent(src: PartyMember): PartyMember {
+  return {
+    ...src,
+    id: uuidv4(),
+    evs: { ...src.evs },
+    moves: [...src.moves],
+    usage: 'opp',
+    data: src.data,
+    megaData: src.megaData,
   }
 }
 
@@ -215,7 +232,13 @@ function stripData(m: PartyMember): PartyMember {
 }
 
 function attachData(m: PartyMember, allPokemon: PokemonData[]): PartyMember {
-  return { ...m, data: allPokemon.find(p => p.name === m.pokemonName), evs: clampEvs(m.evs) }
+  return {
+    ...m,
+    data: allPokemon.find(p => p.name === m.pokemonName),
+    evs: clampEvs(m.evs),
+    usage: m.usage ?? 'both',
+    notes: m.notes ?? '',
+  }
 }
 
 /** 旧ルール（max252）で保存されたEVを新ルール（max32）に丸める。 */
@@ -392,6 +415,12 @@ export function PartyProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'ADD_OPPONENT', payload: makeMember(pokemon) })
   }, [])
 
+  const addOpponentFromRegistry = useCallback((registryId: string) => {
+    const src = state.registry.find(m => m.id === registryId)
+    if (!src) return
+    dispatch({ type: 'ADD_OPPONENT', payload: copyForOpponent(src) })
+  }, [state.registry])
+
   const removeOpponent = useCallback((id: string) => {
     dispatch({ type: 'REMOVE_OPPONENT', id })
   }, [])
@@ -426,6 +455,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
         setPartyIds,
         reorderPartyIds,
         addOpponent,
+        addOpponentFromRegistry,
         removeOpponent,
         updateOpponent,
         reorderOpponent,
