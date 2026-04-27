@@ -63,6 +63,8 @@ export function decodeParty(encoded: string): Omit<PartyMember, 'id'>[] | null {
         spd:   m.ev[5] ?? 0,
       },
       isMega: m.mg,
+      usage:  'both',
+      notes:  '',
     }))
   } catch {
     return null

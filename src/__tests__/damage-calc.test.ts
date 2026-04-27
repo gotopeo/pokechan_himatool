@@ -49,6 +49,8 @@ function makeMember(data: PokemonData, evs: Partial<PartyMember['evs']> = {}, na
     moves: [],
     evs: { hp: 0, atk: 0, def: 0, spAtk: 0, spDef: 0, spd: 0, ...evs },
     isMega: false,
+    usage: 'both',
+    notes: '',
     data,
   }
 }
