@@ -118,14 +118,14 @@ function PredictionCard({ pred, maxSelection, maxLead }: {
 
 export function SelectionPredictor() {
   const { members, state } = useParty()
-  const { opponentMembers } = state
+  const { opponentMembers, moves } = state
 
   const validOwn = members.filter(m => m.data)
   const validOpp = opponentMembers.filter(m => m.data)
 
   const predictions = useMemo(
-    () => predictSelection(validOwn, validOpp),
-    [validOwn, validOpp]
+    () => predictSelection(validOwn, validOpp, moves),
+    [validOwn, validOpp, moves]
   )
 
   const maxSelection = Math.max(...predictions.map(p => p.selectionRate), 1)

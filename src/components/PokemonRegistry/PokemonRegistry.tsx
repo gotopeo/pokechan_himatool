@@ -4,8 +4,8 @@ import { PokemonCombobox } from '../shared/PokemonCombobox'
 import { TypeBadge } from '../shared/TypeBadge'
 import { NATURES } from '../../data/natures'
 import { ITEM_NAMES } from '../../data/items'
-import { HARDCODED_MOVES, MOVE_NAMES } from '../../data/moves'
-import type { PartyMember, RegistryUsage } from '../../types/pokemon'
+import { MoveCombobox } from '../shared/MoveCombobox'
+import type { PartyMember, RegistryUsage, MoveData } from '../../types/pokemon'
 import type { NatureName } from '../../data/natures'
 import type { EVKey } from '../../types/pokemon'
 
@@ -45,7 +45,24 @@ interface RegistryRowProps {
   onRemove: () => void
 }
 
-function RegistryRow({ member, inParty, partyFull, onToggleParty, onUpdate, onRemove, abilityJaNames }: RegistryRowProps & { abilityJaNames: Record<string, string> }) {
+function RegistryRow({
+  member,
+  inParty,
+  partyFull,
+  onToggleParty,
+  onUpdate,
+  onRemove,
+  abilityJaNames,
+  movesMap,
+}: RegistryRowProps & {
+  abilityJaNames: Record<string, string>
+  movesMap: Record<string, MoveData>
+}) {
+  // ポケモンの movePool を MoveData[] に展開（jaNameでソート）
+  const availableMoves: MoveData[] = (member.data?.movePool ?? [])
+    .map(slug => movesMap[slug])
+    .filter((m): m is MoveData => !!m)
+    .sort((a, b) => a.jaName.localeCompare(b.jaName, 'ja'))
   const [expanded, setExpanded] = useState(false)
   const data = member.data
   const total = evTotal(member.evs)
@@ -243,31 +260,32 @@ function RegistryRow({ member, inParty, partyFull, onToggleParty, onUpdate, onRe
 
           {/* 技 */}
           <div>
-            <span className="text-sm text-gray-500 mb-1 block">技（最大4つ）</span>
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-sm text-gray-500">技（最大4つ）</span>
+              <span className="text-[11px] text-gray-400">
+                覚える技 {availableMoves.length}個から選択
+              </span>
+            </div>
             <div className="space-y-1.5">
               {[0, 1, 2, 3].map(idx => (
-                <select
+                <MoveCombobox
                   key={idx}
+                  available={availableMoves}
                   value={member.moves[idx] ?? ''}
-                  onChange={e => {
+                  onChange={(slug) => {
                     const newMoves = [...member.moves]
-                    newMoves[idx] = e.target.value
+                    newMoves[idx] = slug
                     onUpdate({ moves: newMoves })
                   }}
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-white"
-                >
-                  <option value="">--- なし ---</option>
-                  {MOVE_NAMES.map(n => {
-                    const m = HARDCODED_MOVES.find(mv => mv.name === n)!
-                    return (
-                      <option key={n} value={n}>
-                        {n}（{m.type} / {m.category}）
-                      </option>
-                    )
-                  })}
-                </select>
+                  placeholder={`技${idx + 1}を検索...`}
+                />
               ))}
             </div>
+            {availableMoves.length === 0 && (
+              <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1">
+                ⚠ 技データを読み込み中、または このポケモンの技データが取得できません。
+              </p>
+            )}
           </div>
         </div>
       )}
@@ -285,7 +303,7 @@ export function PokemonRegistry() {
     updateRegistryMember,
     togglePartyId,
   } = useParty()
-  const { registry, partyIds, allPokemon, abilityJaNames } = state
+  const { registry, partyIds, allPokemon, abilityJaNames, moves } = state
 
   const partySet = new Set(partyIds)
   const partyFull = partyIds.length >= 6
@@ -364,6 +382,7 @@ export function PokemonRegistry() {
             onUpdate={patch => updateRegistryMember(m.id, patch)}
             onRemove={() => removeFromRegistry(m.id)}
             abilityJaNames={abilityJaNames}
+            movesMap={moves}
           />
         ))}
       </div>

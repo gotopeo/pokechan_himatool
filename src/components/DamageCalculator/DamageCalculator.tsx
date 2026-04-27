@@ -1,9 +1,9 @@
 import { useState, useMemo } from 'react'
 import { useParty } from '../../store/party-context'
 import { calcDamage } from '../../lib/damage-calc'
-import { HARDCODED_MOVES, MOVE_NAMES } from '../../data/moves'
 import { OpponentPartyEditor } from '../shared/OpponentPartyEditor'
-import type { DamageInput, RankModifier, Weather, Field, PartyMember } from '../../types/pokemon'
+import { MoveCombobox } from '../shared/MoveCombobox'
+import type { DamageInput, RankModifier, Weather, Field, PartyMember, MoveData } from '../../types/pokemon'
 
 const WEATHER_OPTIONS: Weather[] = ['なし', 'はれ', 'あめ', 'すなあらし', 'あられ']
 const FIELD_OPTIONS: Field[]   = ['なし', 'エレキフィールド', 'グラスフィールド', 'サイコフィールド', 'ミストフィールド']
@@ -88,14 +88,14 @@ function DamageBar({ rolls, defHp }: { rolls: number[]; defHp: number }) {
 
 export function DamageCalculator() {
   const { members, state } = useParty()
-  const { opponentMembers } = state
+  const { opponentMembers, moves: movesMap } = state
   const validOwn = members.filter(m => m.data)
   const validOpp = opponentMembers.filter(m => m.data)
   const allValid = [...validOwn, ...validOpp]
 
   const [attackerId, setAttackerId] = useState<string>('')
   const [defenderId, setDefenderId] = useState<string>('')
-  const [moveName,   setMoveName]   = useState<string>('')
+  const [moveSlug,   setMoveSlug]   = useState<string>('')
   const [atkRank,    setAtkRank]    = useState<RankModifier>(0)
   const [defRank,    setDefRank]    = useState<RankModifier>(0)
   const [spAtkRank,  setSpAtkRank]  = useState<RankModifier>(0)
@@ -109,14 +109,24 @@ export function DamageCalculator() {
 
   const attacker = allValid.find(m => m.id === attackerId)
   const defender = allValid.find(m => m.id === defenderId)
-  const moveData  = HARDCODED_MOVES.find(mv => mv.name === moveName)
+  const moveData: MoveData | undefined = moveSlug ? movesMap[moveSlug] : undefined
+
+  // 攻撃側の覚える技から、攻撃技（変化技以外・威力>0）のみを選択肢とする
+  const attackerMovePool: MoveData[] = useMemo(() => {
+    if (!attacker?.data?.movePool) return []
+    return attacker.data.movePool
+      .map(slug => movesMap[slug])
+      .filter((m): m is MoveData => !!m && m.category !== '変化' && m.power > 0)
+      .sort((a, b) => b.power - a.power)
+  }, [attacker, movesMap])
 
   const result = useMemo(() => {
-    if (!attacker || !defender || !moveName) return null
+    if (!attacker || !defender || !moveData) return null
     const input: DamageInput = {
       attacker,
       defender,
-      moveName,
+      moveName: moveData.jaName,
+      moveData,
       atkRank,
       defRank,
       spAtkRank,
@@ -129,7 +139,7 @@ export function DamageCalculator() {
       attackerIsMega: atkIsMega,
     }
     return calcDamage(input)
-  }, [attacker, defender, moveName, atkRank, defRank, spAtkRank, spDefRank, weather, field, wallActive, isCrit, defHpRatio, atkIsMega])
+  }, [attacker, defender, moveData, atkRank, defRank, spAtkRank, spDefRank, weather, field, wallActive, isCrit, defHpRatio, atkIsMega])
 
   return (
     <div className="space-y-5">
@@ -193,28 +203,21 @@ export function DamageCalculator() {
       </div>
 
       {/* 技選択 */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="flex-1">
-          <label className="block text-xs text-gray-500 mb-1">技</label>
-          <select
-            value={moveName}
-            onChange={e => setMoveName(e.target.value)}
-            className="w-full border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-white"
-          >
-            <option value="">--- 選択 ---</option>
-            {MOVE_NAMES.filter(n => {
-              const m = HARDCODED_MOVES.find(mv => mv.name === n)
-              return m && m.category !== '変化' && m.power > 0
-            }).map(n => {
-              const m = HARDCODED_MOVES.find(mv => mv.name === n)!
-              return (
-                <option key={n} value={n}>
-                  {n}（{m.type} {m.category} 威力{m.power}）
-                </option>
-              )
-            })}
-          </select>
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center justify-between">
+          <label className="block text-xs text-gray-500">技（攻撃側の覚える技から選択）</label>
+          {attacker && (
+            <span className="text-[11px] text-gray-400">
+              候補 {attackerMovePool.length}個
+            </span>
+          )}
         </div>
+        <MoveCombobox
+          available={attackerMovePool}
+          value={moveSlug}
+          onChange={setMoveSlug}
+          placeholder={attacker ? '技を検索...' : 'まず攻撃側を選択してください'}
+        />
       </div>
 
       {/* 場の状態 */}
@@ -278,20 +281,19 @@ export function DamageCalculator() {
 
           {moveData && (
             <div className="text-xs text-gray-400">
-              {moveName}（{moveData.type} / {moveData.category} / 威力{moveData.power}）
-              {moveData.description && ` — ${moveData.description}`}
+              {moveData.jaName}（{moveData.type} / {moveData.category} / 威力{moveData.power}）
             </div>
           )}
         </div>
       )}
 
-      {result && result.maxDamage === 0 && attacker && defender && moveName && (
+      {result && result.maxDamage === 0 && attacker && defender && moveData && (
         <div className="p-4 text-center text-gray-400 border border-gray-200 dark:border-gray-700 rounded-lg">
           技が無効か、計算できませんでした（タイプ無効・変化技など）
         </div>
       )}
 
-      {(!attacker || !defender || !moveName) && (
+      {(!attacker || !defender || !moveData) && (
         <div className="p-4 text-center text-gray-400 border border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-sm">
           攻撃側・防御側・技を選択してください
         </div>

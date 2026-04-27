@@ -1,4 +1,4 @@
-import type { PartyMember, PokemonData } from '../types/pokemon'
+import type { PartyMember, PokemonData, MoveData } from '../types/pokemon'
 import type { PokemonType } from '../data/type-chart'
 import { getEffectivenessWithAbility } from './type-effectiveness'
 import { HARDCODED_MOVES } from '../data/moves'
@@ -43,15 +43,35 @@ function bst(p: PokemonData): number {
 
 /**
  * 相手の取り得る攻撃タイプを推定する。
- * - 技が登録されていれば、変化技以外の技タイプを採用
+ * - 技が登録されていれば、変化技以外の技タイプを採用（PokéAPI由来のmovesMapを優先）
  * - そうでなければ、自身のタイプ（STAB想定）を採用
  */
-function inferOffensiveTypes(m: PartyMember, data: PokemonData): PokemonType[] {
-  const fromMoves = m.moves
-    .map(name => HARDCODED_MOVES.find(mv => mv.name === name))
-    .filter((mv): mv is NonNullable<typeof mv> => !!mv && mv.category !== '変化' && mv.power > 0)
-    .map(mv => mv.type)
-  if (fromMoves.length > 0) return Array.from(new Set(fromMoves))
+function inferOffensiveTypes(
+  m: PartyMember,
+  data: PokemonData,
+  movesMap?: Record<string, MoveData>
+): PokemonType[] {
+  const types: string[] = []
+  for (const stored of m.moves) {
+    if (!stored) continue
+    // 1. movesMap[slug]
+    const bySlug = movesMap?.[stored]
+    if (bySlug && bySlug.category !== '変化' && bySlug.power > 0) {
+      types.push(bySlug.type)
+      continue
+    }
+    // 2. movesMap value with jaName match (legacy data)
+    if (movesMap) {
+      const byJa = Object.values(movesMap).find(mv =>
+        mv.jaName === stored && mv.category !== '変化' && mv.power > 0
+      )
+      if (byJa) { types.push(byJa.type); continue }
+    }
+    // 3. fallback: HARDCODED_MOVES (legacy)
+    const hc = HARDCODED_MOVES.find(mv => mv.name === stored)
+    if (hc && hc.category !== '変化' && hc.power > 0) types.push(hc.type)
+  }
+  if (types.length > 0) return Array.from(new Set(types)) as PokemonType[]
   return data.types
 }
 
@@ -77,14 +97,15 @@ function computeMatchups(
   opp: PartyMember,
   oppData: PokemonData,
   oppOffTypes: PokemonType[],
-  ownParty: PartyMember[]
+  ownParty: PartyMember[],
+  movesMap?: Record<string, MoveData>
 ): OpponentPrediction['matchups'] {
   return ownParty.map(own => {
     const ownData = getEffectiveData(own)
     if (!ownData) {
       return { own, pairScore: 1, offensive: 1, defensive: 1 }
     }
-    const ownOffTypes = inferOffensiveTypes(own, ownData)
+    const ownOffTypes = inferOffensiveTypes(own, ownData, movesMap)
 
     // 相手→自分: 攻めの通り（相手の最大有効打）
     const offensive = maxOffensiveMultiplier(
@@ -126,9 +147,10 @@ function rateOpponent(
   oppData: PokemonData,
   oppOffTypes: PokemonType[],
   ownParty: PartyMember[],
-  agg: PartyAggregates
+  agg: PartyAggregates,
+  movesMap?: Record<string, MoveData>
 ): OpponentPrediction {
-  const matchups = computeMatchups(opp, oppData, oppOffTypes, ownParty)
+  const matchups = computeMatchups(opp, oppData, oppOffTypes, ownParty, movesMap)
   const avgPair = matchups.reduce((s, m) => s + m.pairScore, 0) / Math.max(1, matchups.length)
   const oppBst = bst(oppData)
   const bstFactor = 0.7 + 0.3 * (oppBst / Math.max(450, agg.avgBst))
@@ -174,7 +196,8 @@ function rateOpponent(
  */
 export function predictSelection(
   ownParty: PartyMember[],
-  opponentParty: PartyMember[]
+  opponentParty: PartyMember[],
+  movesMap?: Record<string, MoveData>
 ): OpponentPrediction[] {
   const validOwn = ownParty.filter(m => !!m.data)
   const validOpp = opponentParty.filter(m => !!m.data)
@@ -189,8 +212,8 @@ export function predictSelection(
 
   const predictions = validOpp.map(opp => {
     const oppData = getEffectiveData(opp)!
-    const oppOffTypes = inferOffensiveTypes(opp, oppData)
-    return rateOpponent(opp, oppData, oppOffTypes, validOwn, agg)
+    const oppOffTypes = inferOffensiveTypes(opp, oppData, movesMap)
+    return rateOpponent(opp, oppData, oppOffTypes, validOwn, agg, movesMap)
   })
 
   // 選出率: 脅威スコアを正規化（合計300%）

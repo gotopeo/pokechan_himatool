@@ -145,7 +145,17 @@ export function calcDamage(input: DamageInput): DamageResult {
     return emptyResult()
   }
 
-  const move = MOVE_MAP[moveName]
+  // 新経路: moveData が渡されればそれを使う / 旧経路: MOVE_MAPからjaNameで引く
+  const moveLike = input.moveData
+    ? {
+        name: input.moveData.jaName,
+        type: input.moveData.type as PokemonType,
+        category: input.moveData.category,
+        power: input.moveData.power,
+        accuracy: input.moveData.accuracy,
+      }
+    : MOVE_MAP[moveName]
+  const move = moveLike
   if (!move || move.category === '変化' || move.power === 0) {
     return emptyResult()
   }

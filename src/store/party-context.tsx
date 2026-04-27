@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from 'react'
 import { v4 as uuidv4 } from 'uuid'
-import type { PartyMember, EVs } from '../types/pokemon'
+import type { PartyMember, EVs, MoveData } from '../types/pokemon'
 import type { PokemonData } from '../types/pokemon'
 import type { NatureName } from '../data/natures'
 import { readPartyFromHash, writePartyToHash } from '../lib/party-codec'
@@ -34,6 +34,8 @@ export interface PartyState {
   allPokemon: PokemonData[]
   /** 特性スラッグ → 日本語名マップ */
   abilityJaNames: Record<string, string>
+  /** 技スラッグ → 技データマップ（PokéAPI由来） */
+  moves: Record<string, MoveData>
   loadingProgress: { loaded: number; total: number }
   isLoading: boolean
   darkMode: boolean
@@ -46,6 +48,7 @@ const initialState: PartyState = {
   opponentMembers: [],
   allPokemon: [],
   abilityJaNames: {},
+  moves: {},
   loadingProgress: { loaded: 0, total: 1 },
   isLoading: true,
   darkMode: false,
@@ -55,7 +58,7 @@ const initialState: PartyState = {
 // ---- Actions ---------------------------------------------------------------
 
 type Action =
-  | { type: 'SET_ALL_POKEMON'; payload: PokemonData[]; abilityJaNames: Record<string, string> }
+  | { type: 'SET_ALL_POKEMON'; payload: PokemonData[]; abilityJaNames: Record<string, string>; moves: Record<string, MoveData> }
   | { type: 'SET_LOADING_PROGRESS'; loaded: number; total: number }
   | { type: 'SET_LOADING'; isLoading: boolean }
   | { type: 'HYDRATE'; registry: PartyMember[]; partyIds: string[]; opponentMembers: PartyMember[] }
@@ -82,7 +85,12 @@ type Action =
 function reducer(state: PartyState, action: Action): PartyState {
   switch (action.type) {
     case 'SET_ALL_POKEMON':
-      return { ...state, allPokemon: action.payload, abilityJaNames: action.abilityJaNames }
+      return {
+        ...state,
+        allPokemon: action.payload,
+        abilityJaNames: action.abilityJaNames,
+        moves: action.moves,
+      }
 
     case 'SET_LOADING_PROGRESS':
       return {
@@ -292,13 +300,13 @@ export function PartyProvider({ children }: { children: ReactNode }) {
     ;(async () => {
       dispatch({ type: 'SET_LOADING', isLoading: true })
       try {
-        const { pokemon, abilityJaNames } = await loadAllPokemon((loaded, total) => {
+        const { pokemon, abilityJaNames, moves } = await loadAllPokemon((loaded, total) => {
           if (!cancelled) {
             dispatch({ type: 'SET_LOADING_PROGRESS', loaded, total })
           }
         })
         if (cancelled) return
-        dispatch({ type: 'SET_ALL_POKEMON', payload: pokemon, abilityJaNames })
+        dispatch({ type: 'SET_ALL_POKEMON', payload: pokemon, abilityJaNames, moves })
 
         // URLハッシュからパーティ復元（共有URL経由・1回限り）
         const fromHash = readPartyFromHash()
