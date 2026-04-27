@@ -28,8 +28,10 @@ export interface PokemonData {
   weight: number        // 10g単位
   megaOf?: string       // メガシンカ前のname (e.g. "charizard")
   megaForms?: string[]  // メガ進化後のname一覧
-  /** このポケモンが覚える技スラッグ一覧（PokéAPI由来） */
+  /** このポケモンが覚える技スラッグ一覧（PokéAPI由来＋進化前から継承） */
   movePool?: string[]
+  /** 進化前のポケモン名（PokéAPIスラッグ）。進化前なし時は null */
+  preEvolution?: string | null
 }
 
 /** 技データ（PokéAPI /move/{slug} 由来） */

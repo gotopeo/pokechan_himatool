@@ -1,9 +1,12 @@
 import { useState, useMemo } from 'react'
 import { useParty } from '../../store/party-context'
-import { calcDamage } from '../../lib/damage-calc'
+import { calcDamage, calcStat } from '../../lib/damage-calc'
+import { getEffectivenessWithAbility } from '../../lib/type-effectiveness'
 import { OpponentPartyEditor } from '../shared/OpponentPartyEditor'
 import { MoveCombobox } from '../shared/MoveCombobox'
+import { TypeBadge } from '../shared/TypeBadge'
 import type { DamageInput, RankModifier, Weather, Field, PartyMember, MoveData } from '../../types/pokemon'
+import type { PokemonType } from '../../data/type-chart'
 
 const WEATHER_OPTIONS: Weather[] = ['なし', 'はれ', 'あめ', 'すなあらし', 'あられ']
 const FIELD_OPTIONS: Field[]   = ['なし', 'エレキフィールド', 'グラスフィールド', 'サイコフィールド', 'ミストフィールド']
@@ -23,41 +26,66 @@ function RankSelect({ value, onChange }: { value: RankModifier; onChange: (v: Ra
   )
 }
 
-function PokemonSelect({ ownMembers, oppMembers, value, onChange, label }: {
+interface ChipPickerProps {
   ownMembers: PartyMember[]
   oppMembers: PartyMember[]
   value: string
   onChange: (id: string) => void
-  label: string
-}) {
-  return (
-    <div>
-      <label className="block text-xs text-gray-500 mb-1">{label}</label>
-      <select
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        className="w-full border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-white"
+}
+
+function PokemonChipPicker({ ownMembers, oppMembers, value, onChange }: ChipPickerProps) {
+  const renderChip = (m: PartyMember, side: 'own' | 'opp') => {
+    const data = m.isMega && m.megaData ? m.megaData : m.data
+    const isSelected = value === m.id
+    const baseColor = side === 'own'
+      ? (isSelected
+          ? 'border-blue-500 bg-blue-100 dark:bg-blue-800'
+          : 'border-blue-200 dark:border-blue-800 hover:border-blue-400 bg-white dark:bg-gray-800')
+      : (isSelected
+          ? 'border-red-500 bg-red-100 dark:bg-red-800'
+          : 'border-red-200 dark:border-red-800 hover:border-red-400 bg-white dark:bg-gray-800')
+    return (
+      <button
+        key={m.id}
+        onClick={() => onChange(m.id)}
+        className={`flex items-center gap-1 px-1.5 py-1 border rounded text-left transition-colors ${baseColor}`}
       >
-        <option value="">--- 選択 ---</option>
-        {ownMembers.length > 0 && (
-          <optgroup label="自分">
-            {ownMembers.filter(m => m.data).map(m => (
-              <option key={m.id} value={m.id}>
-                {m.jaName}（Lv{m.level} / {m.nature}）
-              </option>
-            ))}
-          </optgroup>
+        {data?.sprite && (
+          <img src={data.sprite} alt={data.jaName} className="w-7 h-7 object-contain shrink-0" />
         )}
-        {oppMembers.length > 0 && (
-          <optgroup label="相手">
-            {oppMembers.filter(m => m.data).map(m => (
-              <option key={m.id} value={m.id}>
-                {m.jaName}（Lv{m.level} / {m.nature}）
-              </option>
-            ))}
-          </optgroup>
-        )}
-      </select>
+        <span className="text-xs text-gray-800 dark:text-white truncate max-w-[90px]" title={data?.jaName}>
+          {data?.jaName ?? m.jaName}
+        </span>
+      </button>
+    )
+  }
+
+  if (ownMembers.length === 0 && oppMembers.length === 0) {
+    return (
+      <p className="text-xs text-gray-400 italic">
+        パーティ未登録です
+      </p>
+    )
+  }
+
+  return (
+    <div className="space-y-1.5">
+      {ownMembers.length > 0 && (
+        <div>
+          <span className="text-[10px] font-semibold text-blue-600 dark:text-blue-300 mr-1">自分</span>
+          <div className="inline-flex flex-wrap gap-1 align-middle">
+            {ownMembers.map(m => renderChip(m, 'own'))}
+          </div>
+        </div>
+      )}
+      {oppMembers.length > 0 && (
+        <div>
+          <span className="text-[10px] font-semibold text-red-600 dark:text-red-300 mr-1">相手</span>
+          <div className="inline-flex flex-wrap gap-1 align-middle">
+            {oppMembers.map(m => renderChip(m, 'opp'))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -84,6 +112,18 @@ function DamageBar({ rolls, defHp }: { rolls: number[]; defHp: number }) {
       <div className="text-xs text-gray-400 text-center">乱数16通りの分布</div>
     </div>
   )
+}
+
+/**
+ * タイプ相性倍率を表示用ラベルに変換
+ */
+function effectivenessLabel(mul: number): { text: string; color: string } | null {
+  if (mul === 0)         return { text: 'こうかなし',   color: 'bg-gray-800 text-white' }
+  if (mul <= 0.25)       return { text: 'いまひとつ(¼)', color: 'bg-blue-200 text-blue-900 dark:bg-blue-700 dark:text-blue-100' }
+  if (mul < 1)           return { text: 'いまひとつ',   color: 'bg-blue-100 text-blue-700 dark:bg-blue-800 dark:text-blue-200' }
+  if (mul === 1)         return null // 等倍は表示しない（ノイズ削減）
+  if (mul >= 4)          return { text: 'ばつぐん(×4)', color: 'bg-red-300 text-red-900 dark:bg-red-700 dark:text-red-100' }
+  return                        { text: 'ばつぐん',     color: 'bg-red-100 text-red-700 dark:bg-red-800 dark:text-red-200' }
 }
 
 export function DamageCalculator() {
@@ -120,6 +160,28 @@ export function DamageCalculator() {
       .sort((a, b) => b.power - a.power)
   }, [attacker, movesMap])
 
+  // タイプ相性（特性込み）
+  const effectiveness = useMemo(() => {
+    if (!moveData || !defender?.data) return null
+    const defData = defender.data
+    return getEffectivenessWithAbility(moveData.type as PokemonType, defData, defender.ability)
+  }, [moveData, defender])
+
+  const effLabel = effectiveness !== null ? effectivenessLabel(effectiveness) : null
+
+  // 攻守スワップ
+  const handleSwap = () => {
+    setAttackerId(defenderId)
+    setDefenderId(attackerId)
+    setMoveSlug('') // 技は攻撃側のmovePoolから選ぶので、入れ替え時はリセット
+    // ランクも入れ替え（A↔B、C↔D）
+    setAtkRank(defRank)
+    setDefRank(atkRank)
+    setSpAtkRank(spDefRank)
+    setSpDefRank(spAtkRank)
+    setAtkIsMega(false)
+  }
+
   const result = useMemo(() => {
     if (!attacker || !defender || !moveData) return null
     const input: DamageInput = {
@@ -141,18 +203,33 @@ export function DamageCalculator() {
     return calcDamage(input)
   }, [attacker, defender, moveData, atkRank, defRank, spAtkRank, spDefRank, weather, field, wallActive, isCrit, defHpRatio, atkIsMega])
 
+  // 防御側の最大HP（技選択前から計算可能）
+  const defenderMaxHp = useMemo(() => {
+    if (!defender?.data) return 0
+    return calcStat(defender.data.stats.hp, defender.evs.hp, defender.level, 1, true)
+  }, [defender])
+  const defenderCurrentHp = defenderMaxHp > 0 ? Math.max(1, Math.round(defenderMaxHp * defHpRatio)) : 0
+
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <h2 className="text-lg font-bold text-gray-800 dark:text-white">ダメージ計算</h2>
 
       {/* 相手パーティ管理 */}
       <OpponentPartyEditor />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* 攻撃側／⇄／防御側 */}
+      <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-3 items-stretch">
         {/* 攻撃側 */}
-        <div className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg space-y-3 bg-red-50 dark:bg-red-900/20">
-          <h3 className="font-semibold text-red-700 dark:text-red-300 text-sm">⚔ 攻撃側</h3>
-          <PokemonSelect ownMembers={validOwn} oppMembers={validOpp} value={attackerId} onChange={setAttackerId} label="ポケモン（自分/相手）" />
+        <div className="p-3 border border-red-200 dark:border-red-900 rounded-lg space-y-2 bg-red-50/50 dark:bg-red-900/10">
+          <h3 className="font-semibold text-red-700 dark:text-red-300 text-sm flex items-center gap-1">
+            <span>⚔</span> 攻撃側
+          </h3>
+          <PokemonChipPicker
+            ownMembers={validOwn}
+            oppMembers={validOpp}
+            value={attackerId}
+            onChange={setAttackerId}
+          />
           {attacker?.megaData && (
             <label className="flex items-center gap-2 text-xs cursor-pointer">
               <input
@@ -175,10 +252,30 @@ export function DamageCalculator() {
           </div>
         </div>
 
+        {/* スワップボタン */}
+        <div className="flex md:flex-col items-center justify-center">
+          <button
+            onClick={handleSwap}
+            disabled={!attackerId || !defenderId}
+            className="text-sm px-2 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed"
+            title="攻守を入れ替え"
+            aria-label="攻守を入れ替え"
+          >
+            ⇄
+          </button>
+        </div>
+
         {/* 防御側 */}
-        <div className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg space-y-3 bg-blue-50 dark:bg-blue-900/20">
-          <h3 className="font-semibold text-blue-700 dark:text-blue-300 text-sm">🛡 防御側</h3>
-          <PokemonSelect ownMembers={validOwn} oppMembers={validOpp} value={defenderId} onChange={setDefenderId} label="ポケモン（自分/相手）" />
+        <div className="p-3 border border-blue-200 dark:border-blue-900 rounded-lg space-y-2 bg-blue-50/50 dark:bg-blue-900/10">
+          <h3 className="font-semibold text-blue-700 dark:text-blue-300 text-sm flex items-center gap-1">
+            <span>🛡</span> 防御側
+          </h3>
+          <PokemonChipPicker
+            ownMembers={validOwn}
+            oppMembers={validOpp}
+            value={defenderId}
+            onChange={setDefenderId}
+          />
           <div className="flex flex-wrap gap-3 text-xs">
             <label className="flex items-center gap-1">
               <span className="text-gray-500">Bランク</span>
@@ -189,15 +286,18 @@ export function DamageCalculator() {
               <RankSelect value={spDefRank} onChange={setSpDefRank} />
             </label>
           </div>
-          <label className="flex items-center gap-1 text-xs">
-            <span className="text-gray-500">残HP割合</span>
+          <label className="flex items-center gap-2 text-xs">
+            <span className="text-gray-500 shrink-0">残HP</span>
             <input
               type="range" min={0.01} max={1} step={0.01}
               value={defHpRatio}
               onChange={e => setDefHpRatio(Number(e.target.value))}
-              className="flex-1"
+              className="flex-1 min-w-0"
             />
-            <span className="w-12 text-right">{Math.round(defHpRatio * 100)}%</span>
+            <span className="shrink-0 text-right tabular-nums text-gray-700 dark:text-gray-200">
+              {defenderMaxHp > 0 ? `${defenderCurrentHp} / ${defenderMaxHp}` : '—'}
+              <span className="text-gray-400 ml-1">({Math.round(defHpRatio * 100)}%)</span>
+            </span>
           </label>
         </div>
       </div>
@@ -218,6 +318,19 @@ export function DamageCalculator() {
           onChange={setMoveSlug}
           placeholder={attacker ? '技を検索...' : 'まず攻撃側を選択してください'}
         />
+        {/* 効果バッジ */}
+        {moveData && defender && (
+          <div className="flex items-center gap-2 text-xs mt-1">
+            <span className="text-gray-500">対 {defender.data?.jaName}:</span>
+            {effLabel ? (
+              <span className={`px-2 py-0.5 rounded font-bold ${effLabel.color}`}>
+                {effLabel.text}（×{effectiveness}）
+              </span>
+            ) : (
+              <span className="text-gray-500">等倍（×1）</span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* 場の状態 */}
@@ -255,13 +368,18 @@ export function DamageCalculator() {
       {/* 結果表示 */}
       {result && result.maxDamage > 0 && (
         <div className="p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg space-y-3">
-          <div className="flex items-center gap-4 flex-wrap">
-            <div className="text-2xl font-bold text-gray-800 dark:text-white">
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="text-2xl font-bold text-gray-800 dark:text-white tabular-nums">
               {result.minDamage}〜{result.maxDamage}
             </div>
-            <div className="text-sm text-gray-500">
+            <div className="text-sm text-gray-500 tabular-nums">
               ({result.minPercent}%〜{result.maxPercent}%)
             </div>
+            {effLabel && (
+              <span className={`px-2 py-0.5 rounded text-xs font-bold ${effLabel.color}`}>
+                {effLabel.text}
+              </span>
+            )}
             <div className={`text-lg font-bold ${
               result.koChance >= 100 ? 'text-red-600' :
               result.koChance > 0   ? 'text-orange-500' : 'text-blue-600'
@@ -272,7 +390,37 @@ export function DamageCalculator() {
 
           <DamageBar rolls={result.rolls} defHp={result.defenderMaxHp} />
 
-          <div className="text-xs text-gray-500 grid grid-cols-2 gap-x-4 gap-y-1">
+          {/* 残HP予測 */}
+          <div className="p-2 bg-gray-50 dark:bg-gray-900 rounded text-xs space-y-0.5 tabular-nums">
+            <div className="text-gray-500 text-[11px] mb-0.5">
+              現在HP {defenderCurrentHp} / {result.defenderMaxHp} に対する残HP予測
+            </div>
+            <div className="grid grid-cols-3 gap-x-3">
+              <div>
+                <span className="text-gray-500">最小ダメ後:</span>{' '}
+                <span className="font-bold text-blue-700 dark:text-blue-300">
+                  {Math.max(0, defenderCurrentHp - result.minDamage)}
+                </span>
+                <span className="text-gray-400"> / {result.defenderMaxHp}</span>
+              </div>
+              <div>
+                <span className="text-gray-500">平均後:</span>{' '}
+                <span className="font-bold text-gray-700 dark:text-gray-200">
+                  {Math.max(0, defenderCurrentHp - result.averageDamage)}
+                </span>
+                <span className="text-gray-400"> / {result.defenderMaxHp}</span>
+              </div>
+              <div>
+                <span className="text-gray-500">最大ダメ後:</span>{' '}
+                <span className={`font-bold ${defenderCurrentHp - result.maxDamage <= 0 ? 'text-red-600' : 'text-red-500'}`}>
+                  {Math.max(0, defenderCurrentHp - result.maxDamage)}
+                </span>
+                <span className="text-gray-400"> / {result.defenderMaxHp}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="text-xs text-gray-500 grid grid-cols-2 gap-x-4 gap-y-1 tabular-nums">
             <div>最小: {result.minDamage}（{result.minPercent}%）</div>
             <div>最大: {result.maxDamage}（{result.maxPercent}%）</div>
             <div>平均: {result.averageDamage}（{result.averagePercent}%）</div>
@@ -280,8 +428,12 @@ export function DamageCalculator() {
           </div>
 
           {moveData && (
-            <div className="text-xs text-gray-400">
-              {moveData.jaName}（{moveData.type} / {moveData.category} / 威力{moveData.power}）
+            <div className="flex items-center gap-2 text-xs text-gray-500 flex-wrap">
+              <TypeBadge type={moveData.type as PokemonType} size="sm" />
+              <span>{moveData.jaName}</span>
+              <span className="text-gray-400">
+                {moveData.category} / 威力{moveData.power}
+              </span>
             </div>
           )}
         </div>

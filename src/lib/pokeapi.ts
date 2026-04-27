@@ -3,8 +3,8 @@ import type { PokemonType } from '../data/type-chart'
 import { REGULATION_POKEMON, MEGA_FORMS, CHAMPIONS_EXCLUSIVE_MEGAS, DEV_SUBSET_IDS } from '../data/regulation-m-a'
 
 const POKEAPI_BASE = 'https://pokeapi.co/api/v2'
-const CACHE_KEY = 'pokechan_pokemon_cache_v8'
-const CACHE_VERSION = 8
+const CACHE_KEY = 'pokechan_pokemon_cache_v9'
+const CACHE_VERSION = 9
 
 const USE_DEV_SUBSET = false
 
@@ -97,6 +97,7 @@ function parsePokemonData(poke: any, species: any): PokemonData {
     weight:  poke.weight ?? 0,
     megaOf:  isMegaForm ? (species?.name ?? poke.name.split('-')[0]) : undefined,
     movePool,
+    preEvolution: species?.evolves_from_species?.name ?? null,
   }
 }
 
@@ -251,6 +252,79 @@ async function fetchAbilityJaMap(
   return map
 }
 
+/**
+ * 進化チェーンを辿り、進化前ポケモンの movePool を継承して
+ * 各 PokemonData の movePool を「進化前を含む統合プール」に書き換える。
+ */
+async function mergePreEvolutionMovePools(allPokemon: PokemonData[]): Promise<void> {
+  // 既知のポケモン: name → PokemonData
+  const byName = new Map<string, PokemonData>()
+  for (const p of allPokemon) byName.set(p.name, p)
+
+  // 取得失敗（404等）したスラッグ。再試行しない。
+  // PokéAPI上 species名で /pokemon/{name} が見つからない形態のあるポケモン
+  // （例: basculin はフォーム必須、pumpkaboo は pumpkaboo-average が必要）
+  const failedSlugs = new Set<string>()
+
+  // 既知チェーンを辿って未知ノードを集める（失敗済みは除外）
+  function collectMissingAncestors(): Set<string> {
+    const need = new Set<string>()
+    for (const start of byName.keys()) {
+      let cur: string | null | undefined = byName.get(start)?.preEvolution
+      while (cur) {
+        if (byName.has(cur)) {
+          cur = byName.get(cur)?.preEvolution ?? null
+        } else if (failedSlugs.has(cur)) {
+          break // この祖先は永久に取得不能
+        } else {
+          need.add(cur)
+          break
+        }
+      }
+    }
+    return need
+  }
+
+  // 反復的に進化前を取得（チェーンの根まで遡る）
+  let pending = collectMissingAncestors()
+  while (pending.size > 0) {
+    const slugs = Array.from(pending)
+    const BATCH = 5
+    const DELAY = 100
+    for (let i = 0; i < slugs.length; i += BATCH) {
+      const batch = slugs.slice(i, i + BATCH)
+      const fetched = await Promise.all(
+        batch.map(s => fetchOnePokemon(s).then(p => [s, p] as const))
+      )
+      for (const [slug, p] of fetched) {
+        if (p) byName.set(p.name, p)
+        else failedSlugs.add(slug)
+      }
+      if (i + BATCH < slugs.length) {
+        await new Promise(r => setTimeout(r, DELAY))
+      }
+    }
+    pending = collectMissingAncestors()
+  }
+
+  // 各ポケモンの movePool を進化前と統合
+  function unionMovePool(name: string, visited = new Set<string>()): string[] {
+    if (visited.has(name)) return []
+    visited.add(name)
+    const p = byName.get(name)
+    if (!p) return []
+    const set = new Set<string>(p.movePool ?? [])
+    if (p.preEvolution) {
+      for (const slug of unionMovePool(p.preEvolution, visited)) set.add(slug)
+    }
+    return Array.from(set)
+  }
+
+  for (const p of allPokemon) {
+    p.movePool = unionMovePool(p.name)
+  }
+}
+
 /** ポケチャン独自メガ進化をベース形態のデータで生成 */
 function createExclusiveMegas(allPokemon: PokemonData[]): PokemonData[] {
   const byName = new Map(allPokemon.map(p => [p.name, p]))
@@ -289,6 +363,10 @@ async function fetchAllPokemon(
 
   const exclusiveMegas = createExclusiveMegas([...normalPokemon, ...megaPokemon])
   const allPokemon = [...normalPokemon, ...megaPokemon, ...exclusiveMegas]
+
+  // 進化前のポケモンも取得して movePool を継承する
+  // （PokéAPIは進化後の moves に進化前のタマゴ技などを含めない場合があるため）
+  await mergePreEvolutionMovePools(allPokemon)
 
   // 特性スラッグを集めて並列取得
   const abilitySlugSet = new Set<string>()
@@ -354,7 +432,7 @@ function saveCache(result: LoadResult): void {
 }
 
 export function clearPokemonCache(): void {
-  for (let v = 1; v <= 8; v++) {
+  for (let v = 1; v <= 9; v++) {
     localStorage.removeItem(`pokechan_pokemon_cache_v${v}`)
   }
 }
@@ -373,12 +451,17 @@ export async function loadAllPokemon(
   return result
 }
 
+/** 検索用文字列正規化（小文字化＋ひらがな→カタカナ統一） */
+function normalizeForSearch(s: string): string {
+  return s.toLowerCase().replace(/[ぁ-ゖ]/g, c => String.fromCharCode(c.charCodeAt(0) + 0x60))
+}
+
 export function searchPokemon(pokemon: PokemonData[], query: string): PokemonData[] {
-  const q = query.toLowerCase().trim()
+  const q = normalizeForSearch(query.trim())
   if (!q) return pokemon
   return pokemon.filter(p =>
-    p.jaName.includes(q) ||
-    p.name.includes(q) ||
+    normalizeForSearch(p.jaName).includes(q) ||
+    normalizeForSearch(p.name).includes(q) ||
     String(p.id) === q
   )
 }

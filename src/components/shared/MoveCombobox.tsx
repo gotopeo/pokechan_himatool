@@ -3,6 +3,17 @@ import type { MoveData } from '../../types/pokemon'
 import { TypeBadge } from './TypeBadge'
 import type { PokemonType } from '../../data/type-chart'
 
+/**
+ * 検索用に文字列を正規化:
+ *   - 大小文字を揃える
+ *   - ひらがな → カタカナ（「にとろ」でも「ニトロチャージ」にヒットさせる）
+ */
+function normalize(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/[ぁ-ゖ]/g, c => String.fromCharCode(c.charCodeAt(0) + 0x60))
+}
+
 interface Props {
   /** 選択肢として表示する技一覧（ポケモンの movePool フィルタ済を期待） */
   available: MoveData[]
@@ -26,13 +37,13 @@ export function MoveCombobox({ available, value, onChange, placeholder = '技を
   const selected = available.find(m => m.slug === value)
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase()
+    const q = normalize(query.trim())
     if (!q) return available.slice(0, 100)
     return available
       .filter(m =>
-        m.jaName.includes(q) ||
-        m.slug.includes(q) ||
-        (m.type as string).toLowerCase().includes(q)
+        normalize(m.jaName).includes(q) ||
+        normalize(m.slug).includes(q) ||
+        normalize(m.type as string).includes(q)
       )
       .slice(0, 100)
   }, [available, query])
