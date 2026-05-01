@@ -1,3 +1,383 @@
+@import url('https://fonts.googleapis.com/css2?family=DotGothic16&family=M+PLUS+1+Code:wght@400;500;600;700&family=Press+Start+2P&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* =====================================================================
+ * Pokédex 世界観テーマ — グローバル CSS 変数とユーティリティ
+ * （Tailwind と併用。コンポーネント側で var(--xxx) や .pdx-* で参照）
+ * ===================================================================== */
+:root {
+  /* Pokédex shell red */
+  --red:        #d8232a;
+  --red-deep:   #a01016;
+  --red-glow:   #ff5d63;
+
+  /* Cream / paper (interior) */
+  --cream:      #f5e9c8;
+  --cream-2:    #ede0b8;
+  --cream-3:    #e0d3a5;
+  --paper:      #fffaeb;
+  --paper-line: #d8c98b;
+
+  /* Pokégear LCD (sub-screen) */
+  --lcd:        #cdd99a;
+  --lcd-deep:   #6d8a4e;
+  --lcd-text:   #2a3517;
+
+  /* Ink / text */
+  --ink:        #25180c;
+  --ink-soft:   #5b4528;
+  --ink-mute:   #8a7549;
+
+  /* Roles */
+  --role-mine:   #2c6df0;
+  --role-opp:    #d8232a;
+  --role-shared: #7a3fc6;
+
+  /* Accents */
+  --gold:       #ffcb05;
+  --good:       #3aa856;
+  --warn:       #f3a31a;
+
+  --line:       #c9b988;
+  --line-2:     #a89058;
+
+  --shadow-lcd:   inset 0 0 0 2px var(--lcd-deep), inset 0 4px 0 rgba(0,0,0,0.05), 0 2px 0 #4a6233;
+  --shadow-paper: 0 1px 0 var(--cream-3), 0 2px 0 var(--paper-line);
+  --shadow-card:  0 2px 0 var(--paper-line), 0 4px 0 rgba(0,0,0,0.06);
+
+  --font-jp:     "M PLUS 1 Code", "Hiragino Sans", "Yu Gothic UI", "Meiryo", sans-serif;
+  --font-pixel:  "DotGothic16", "M PLUS 1 Code", "Hiragino Sans", monospace;
+  --font-arcade: "Press Start 2P", monospace;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-jp);
+  color: var(--ink);
+  background:
+    radial-gradient(circle at 80% -10%, #ffd1d3 0%, transparent 40%),
+    radial-gradient(circle at -10% 30%, #ffe69e 0%, transparent 45%),
+    #f7e9b9;
+  background-attachment: fixed;
+  font-feature-settings: "palt";
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---- Pokédex shell --------------------------------------------------- */
+.pdx-shell {
+  max-width: 1280px;
+  margin: 18px auto;
+  background: linear-gradient(180deg, var(--red) 0%, #c41a21 100%);
+  border-radius: 14px;
+  border: 3px solid var(--red-deep);
+  box-shadow:
+    0 0 0 2px #5d0a0e,
+    0 18px 40px rgba(120,10,10,0.35),
+    inset 0 2px 0 rgba(255,255,255,0.18),
+    inset 0 -3px 0 rgba(0,0,0,0.18);
+  padding: 14px;
+  position: relative;
+  overflow: hidden;
+}
+.pdx-shell .rivet {
+  position: absolute;
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #ffb1b4, #6a0e12 70%);
+  box-shadow: inset 0 1px 1px rgba(255,255,255,0.4);
+  z-index: 2;
+}
+.pdx-shell .rivet.tl { top: 8px; left: 8px; }
+.pdx-shell .rivet.tr { top: 8px; right: 8px; }
+.pdx-shell .rivet.bl { bottom: 8px; left: 8px; }
+.pdx-shell .rivet.br { bottom: 8px; right: 8px; }
+
+/* 内側スクリーン（クリーム地） */
+.pdx-screen {
+  background: var(--cream);
+  border: 3px solid var(--ink);
+  border-radius: 12px;
+  box-shadow: inset 0 0 0 2px var(--paper-line), inset 0 0 60px rgba(0,0,0,0.04);
+  padding: 16px;
+  position: relative;
+}
+
+/* ---- Header (Pokéball lens) ----------------------------------------- */
+.pdx-lens-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 8px 12px 12px;
+}
+.pdx-lens-ball {
+  width: 38px; height: 38px;
+  border-radius: 50%;
+  background: linear-gradient(180deg, #ee2a2a 0%, #ee2a2a 50%, #fff 50%, #fff 100%);
+  border: 2.5px solid var(--ink);
+  position: relative;
+  box-shadow: inset 2px -2px 0 rgba(0,0,0,0.1), inset -3px 3px 0 rgba(255,255,255,0.4);
+  flex-shrink: 0;
+}
+.pdx-lens-ball::before {
+  content: ""; position: absolute; left: 8%; right: 8%;
+  top: 47%; height: 3px;
+  background: var(--ink);
+}
+.pdx-lens-ball::after {
+  content: ""; position: absolute;
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  width: 12px; height: 12px;
+  background: #fff;
+  border: 2.5px solid var(--ink);
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 2px #cbcbcb;
+}
+
+.pdx-title {
+  font-family: var(--font-pixel);
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 2px 0 var(--red-deep);
+  letter-spacing: 0.04em;
+  margin: 0;
+}
+.pdx-sub {
+  font-family: var(--font-arcade);
+  font-size: 7px;
+  letter-spacing: 0.1em;
+  color: #ffd6d8;
+  margin-top: 2px;
+}
+
+/* ---- LED dots --------------------------------------------------------- */
+.pdx-led {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  border: 1.5px solid var(--ink);
+  box-shadow: inset 0 -1px 0 rgba(0,0,0,0.2);
+}
+.pdx-led.r { background: radial-gradient(circle at 30% 30%, #ff8c8e, #d61218); }
+.pdx-led.y { background: radial-gradient(circle at 30% 30%, #ffe986, #d6a300); }
+.pdx-led.g { background: radial-gradient(circle at 30% 30%, #a8eeae, #2b7e36); }
+
+/* ---- Tabs (NES-style menu) ------------------------------------------ */
+.pdx-tabs {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  padding: 0 12px 10px;
+}
+.pdx-tab {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 10px;
+  font-family: var(--font-pixel);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--paper);
+  background: var(--ink);
+  border: 2.5px solid #000;
+  border-radius: 6px;
+  box-shadow: 0 3px 0 #000;
+  cursor: pointer;
+  position: relative;
+}
+.pdx-tab.on {
+  background: var(--gold);
+  color: var(--ink);
+  box-shadow: 0 3px 0 var(--ink);
+}
+.pdx-tab.on::before {
+  content: "▶";
+  position: absolute; left: -2px; top: 50%; transform: translateY(-55%);
+  color: var(--red);
+  font-size: 10px;
+  text-shadow: 1px 0 0 var(--ink);
+}
+
+/* ---- Pixel button (汎用) -------------------------------------------- */
+.pdx-btn {
+  font-family: var(--font-pixel);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 7px 12px;
+  background: var(--paper);
+  border: 2.5px solid var(--ink);
+  border-radius: 6px;
+  color: var(--ink);
+  box-shadow: 0 3px 0 var(--ink);
+  display: inline-flex; align-items: center; gap: 6px;
+  position: relative;
+  top: 0;
+  transition: top 0.06s, box-shadow 0.06s;
+  cursor: pointer;
+}
+.pdx-btn:hover  { background: #fffef5; }
+.pdx-btn:active { top: 2px; box-shadow: 0 1px 0 var(--ink); }
+.pdx-btn.gold   { background: var(--gold); }
+.pdx-btn.danger { background: #fde0e1; }
+
+/* ---- LCD パネル (Pokégear 風) --------------------------------------- */
+.pdx-lcd {
+  background: var(--lcd);
+  border: 3px solid var(--ink);
+  border-radius: 10px;
+  padding: 10px 12px;
+  box-shadow: var(--shadow-lcd);
+  color: var(--lcd-text);
+  position: relative;
+  overflow: hidden;
+}
+.pdx-lcd::after {
+  content: ""; position: absolute; inset: 0;
+  background: repeating-linear-gradient(0deg, transparent 0 2px, rgba(0,0,0,0.04) 2px 3px);
+  pointer-events: none;
+}
+.pdx-lcd > * { position: relative; z-index: 1; }
+
+/* ---- Card (paper) --------------------------------------------------- */
+.pdx-card {
+  background: var(--paper);
+  border: 3px solid var(--ink);
+  border-radius: 10px;
+  padding: 12px;
+  box-shadow: 0 3px 0 var(--ink), inset 0 0 0 1px var(--cream-3);
+}
+
+/* ---- Pokéball glyph (アバター用) ------------------------------------ */
+.pdx-glyph {
+  width: 38px; height: 38px;
+  border-radius: 50%;
+  background: linear-gradient(180deg, var(--red) 50%, #fff 50%);
+  border: 2.5px solid var(--ink);
+  display: grid; place-items: center;
+  position: relative;
+  flex-shrink: 0;
+  box-shadow: inset 2px -2px 0 rgba(0,0,0,0.1), inset -2px 2px 0 rgba(255,255,255,0.3);
+}
+.pdx-glyph::before {
+  content: ""; position: absolute;
+  left: 0; right: 0;
+  top: 47%; height: 3px;
+  background: var(--ink);
+}
+.pdx-glyph::after {
+  content: ""; position: absolute;
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  width: 14px; height: 14px;
+  background: #fff;
+  border: 2.5px solid var(--ink);
+  border-radius: 50%;
+  z-index: 1;
+}
+
+/* ---- Type chip (汎用) ----------------------------------------------- */
+.pdx-tchip {
+  font-family: var(--font-pixel);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 9px;
+  border-radius: 99px;
+  color: #fff;
+  border: 2px solid var(--ink);
+  text-shadow: 1px 1px 0 rgba(0,0,0,0.25);
+}
+
+/* ---- KBD (キーキャップ) --------------------------------------------- */
+.pdx-kbd {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 18px; height: 18px; padding: 0 5px;
+  background: var(--ink);
+  color: var(--paper);
+  border-radius: 3px;
+  font-family: var(--font-arcade);
+  font-size: 8px;
+  font-weight: 700;
+  box-shadow: 0 2px 0 #000;
+}
+
+/* ---- Hero / heading -------------------------------------------------- */
+.pdx-hero h2 {
+  font-family: var(--font-pixel);
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0;
+  color: var(--ink);
+}
+.pdx-hero h2 em { font-style: normal; color: var(--red); }
+.pdx-crumbs {
+  font-family: var(--font-arcade);
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  color: var(--ink-soft);
+}
+.pdx-crumbs b { color: var(--red); }
+
+/* ---- 区切り点線 ----------------------------------------------------- */
+.pdx-dashed {
+  border-bottom: 2px dashed var(--paper-line);
+}
+
+/* レスポンシブ調整 */
+@media (max-width: 920px) {
+  .pdx-shell { margin: 8px; padding: 8px; border-radius: 10px; }
+  .pdx-screen { padding: 10px; }
+  .pdx-tabs { padding: 0 4px 8px; gap: 4px; }
+  .pdx-tab { padding: 5px 8px; font-size: 12px; }
+}
+
+/* =====================================================================
+ * 内側スクリーン内の汎用要素を世界観に合わせる薄いオーバーライド
+ * （Tailwind の bg-white / border-gray-200 等を、クリーム＋インクの組み合わせに置換）
+ * ===================================================================== */
+.pdx-screen h2 {
+  font-family: var(--font-pixel);
+  letter-spacing: 0.02em;
+  color: var(--ink);
+}
+.pdx-screen h3,
+.pdx-screen .text-lg,
+.pdx-screen .text-base {
+  font-family: var(--font-pixel);
+  color: var(--ink);
+}
+
+/* Tailwind の bg-white / dark:bg-gray-800 は背景に映えないので、ペーパー色に揃える */
+.pdx-screen .bg-white { background-color: var(--paper) !important; }
+.pdx-screen .bg-gray-50 { background-color: var(--cream-2) !important; }
+.pdx-screen .bg-gray-100 { background-color: var(--cream-2) !important; }
+.pdx-screen .border-gray-200 { border-color: var(--paper-line) !important; }
+.pdx-screen .border-gray-300 { border-color: var(--line) !important; }
+.pdx-screen .border-gray-100 { border-color: var(--paper-line) !important; }
+.pdx-screen .text-gray-800 { color: var(--ink) !important; }
+.pdx-screen .text-gray-700 { color: var(--ink) !important; }
+.pdx-screen .text-gray-500 { color: var(--ink-soft) !important; }
+.pdx-screen .text-gray-400 { color: var(--ink-mute) !important; }
+
+/* 破線ボーダーは羊皮紙の罫線色 */
+.pdx-screen .border-dashed { border-color: var(--paper-line) !important; }
+
+/* 入力欄を Pokégear LCD 風に */
+.pdx-screen input[type="text"],
+.pdx-screen input[type="number"],
+.pdx-screen input[type="search"],
+.pdx-screen select,
+.pdx-screen textarea {
+  font-family: var(--font-pixel);
+  background-color: var(--paper);
+  border-color: var(--ink);
+}
+.pdx-screen input[type="range"] {
+  accent-color: var(--red);
+}
+
+/* 各セクションの罫線をくっきりインクで */
+.pdx-screen .rounded-lg,
+.pdx-screen .rounded {
+  border-color: var(--paper-line);
+}

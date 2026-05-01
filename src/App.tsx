@@ -35,42 +35,45 @@ function AppInner() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* ヘッダー */}
-      <header className="sticky top-0 z-10 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
-        <div className="max-w-4xl mx-auto px-4 py-2 flex items-center gap-3">
-          <span className="text-xl">⚡</span>
-          <h1 className="font-bold text-base text-gray-800 dark:text-white">
-            ポケチャン 対戦支援ツール
-          </h1>
-          <span className="ml-auto text-xs text-gray-400">
-            Reg.M-A
-          </span>
+    <div className="pdx-shell">
+      {/* 装飾リベット */}
+      <span className="rivet tl" />
+      <span className="rivet tr" />
+      <span className="rivet bl" />
+      <span className="rivet br" />
+
+      {/* ヘッダー（Pokéball レンズ + LED + タイトル） */}
+      <header>
+        <div className="pdx-lens-row">
+          <div className="pdx-lens-ball" />
+          <div className="flex-1 min-w-0">
+            <h1 className="pdx-title truncate">ポケチャン Battle Dex</h1>
+            <div className="pdx-sub">REG.M-A / TRAINER SUPPORT TOOL</div>
+          </div>
+          <div className="hidden sm:flex gap-1.5 items-center">
+            <span className="pdx-led r" />
+            <span className="pdx-led y" />
+            <span className="pdx-led g" />
+          </div>
         </div>
 
-        {/* タブバー */}
-        <div className="max-w-4xl mx-auto px-4 pb-0">
-          <nav className="flex gap-0 overflow-x-auto">
-            {TABS.map(t => (
-              <button
-                key={t.id}
-                onClick={() => setTab(t.id)}
-                className={`flex items-center gap-1 px-3 py-2 text-sm whitespace-nowrap border-b-2 transition-colors ${
-                  tab === t.id
-                    ? 'border-blue-500 text-blue-600 dark:text-blue-400 font-semibold'
-                    : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-                }`}
-              >
-                <span>{t.icon}</span>
-                <span className="hidden sm:inline">{t.label}</span>
-              </button>
-            ))}
-          </nav>
-        </div>
+        {/* タブ */}
+        <nav className="pdx-tabs">
+          {TABS.map(t => (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={`pdx-tab ${tab === t.id ? 'on' : ''}`}
+            >
+              <span>{t.icon}</span>
+              <span className="hidden sm:inline">{t.label}</span>
+            </button>
+          ))}
+        </nav>
       </header>
 
-      {/* メインコンテンツ */}
-      <main className="max-w-4xl mx-auto px-4 py-5">
+      {/* メインスクリーン */}
+      <main className="pdx-screen">
         {tab === 'party'    && <PartyEditor />}
         {tab === 'registry' && <PokemonRegistry />}
         {tab === 'type'     && <TypeMatrix />}
