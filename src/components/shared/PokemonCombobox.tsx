@@ -9,12 +9,45 @@ interface Props {
   placeholder?: string
 }
 
+/** ドロップダウン高さ目安（max-h-60 = 240px） */
+const DROPDOWN_MAX_HEIGHT = 240
+
 export function PokemonCombobox({ allPokemon, value, onChange, placeholder = 'ポケモンを検索...' }: Props) {
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
   const [highlighted, setHighlighted] = useState(0)
+  const [dropDirection, setDropDirection] = useState<'down' | 'up'>('down')
   const inputRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLUListElement>(null)
+  const wrapRef = useRef<HTMLDivElement>(null)
+
+  /**
+   * 入力欄の位置から、下にスペース不足ならドロップダウンを上へ反転。
+   * IME予測やソフトキーボードに候補が隠れる問題を回避する。
+   */
+  const recalcDirection = () => {
+    const el = wrapRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    const spaceBelow = window.innerHeight - rect.bottom
+    const spaceAbove = rect.top
+    if (spaceBelow < DROPDOWN_MAX_HEIGHT && spaceAbove > spaceBelow) {
+      setDropDirection('up')
+    } else {
+      setDropDirection('down')
+    }
+  }
+
+  useEffect(() => {
+    if (!open) return
+    recalcDirection()
+    window.addEventListener('resize', recalcDirection)
+    window.addEventListener('scroll', recalcDirection, true)
+    return () => {
+      window.removeEventListener('resize', recalcDirection)
+      window.removeEventListener('scroll', recalcDirection, true)
+    }
+  }, [open])
 
   const filtered = query.trim()
     ? searchPokemon(allPokemon, query)
@@ -47,7 +80,7 @@ export function PokemonCombobox({ allPokemon, value, onChange, placeholder = '�
   }
 
   return (
-    <div className="relative">
+    <div ref={wrapRef} className="relative">
       <div className="flex items-center border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden bg-white dark:bg-gray-800">
         {value?.sprite && (
           <img src={value.sprite} alt={value.jaName} className="w-8 h-8 object-contain ml-1" />
@@ -68,7 +101,9 @@ export function PokemonCombobox({ allPokemon, value, onChange, placeholder = '�
       {open && filtered.length > 0 && (
         <ul
           ref={listRef}
-          className="absolute z-20 w-full mt-1 max-h-60 overflow-y-auto bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg"
+          className={`absolute z-20 w-full max-h-60 overflow-y-auto bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg ${
+            dropDirection === 'up' ? 'bottom-full mb-1' : 'top-full mt-1'
+          }`}
         >
           {filtered.map((p, i) => (
             <li

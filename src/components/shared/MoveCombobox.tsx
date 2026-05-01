@@ -28,11 +28,45 @@ interface Props {
  * 検索可能な技選択コンボボックス。
  * 入力で日本語名・種別・タイプによる絞り込み、最大100件までインクリメンタルに表示。
  */
+/** ドロップダウン高さ目安（max-h-60 = 240px、CSS変数と一致させる） */
+const DROPDOWN_MAX_HEIGHT = 240
+
 export function MoveCombobox({ available, value, onChange, placeholder = '技を検索...' }: Props) {
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
   const [highlighted, setHighlighted] = useState(0)
+  const [dropDirection, setDropDirection] = useState<'down' | 'up'>('down')
   const inputRef = useRef<HTMLInputElement>(null)
+  const wrapRef = useRef<HTMLDivElement>(null)
+
+  /**
+   * 入力欄の位置から、ドロップダウンを上下どちらに開くか判定する。
+   * 下方向のスペースが不足（IME予測やキーボードで隠れる場合）は上方向へ反転。
+   */
+  const recalcDirection = () => {
+    const el = wrapRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    const spaceBelow = window.innerHeight - rect.bottom
+    const spaceAbove = rect.top
+    // 下が240px未満で、上の方が広いなら上に開く
+    if (spaceBelow < DROPDOWN_MAX_HEIGHT && spaceAbove > spaceBelow) {
+      setDropDirection('up')
+    } else {
+      setDropDirection('down')
+    }
+  }
+
+  useEffect(() => {
+    if (!open) return
+    recalcDirection()
+    window.addEventListener('resize', recalcDirection)
+    window.addEventListener('scroll', recalcDirection, true)
+    return () => {
+      window.removeEventListener('resize', recalcDirection)
+      window.removeEventListener('scroll', recalcDirection, true)
+    }
+  }, [open])
 
   const selected = available.find(m => m.slug === value)
 
@@ -76,7 +110,7 @@ export function MoveCombobox({ available, value, onChange, placeholder = '技を
   }
 
   return (
-    <div className="relative">
+    <div ref={wrapRef} className="relative">
       <div className="flex items-center border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700">
         <input
           ref={inputRef}
@@ -109,7 +143,9 @@ export function MoveCombobox({ available, value, onChange, placeholder = '技を
       </div>
 
       {open && (
-        <ul className="absolute z-20 w-full mt-1 max-h-60 overflow-y-auto bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg">
+        <ul className={`absolute z-20 w-full max-h-60 overflow-y-auto bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg ${
+          dropDirection === 'up' ? 'bottom-full mb-1' : 'top-full mt-1'
+        }`}>
           {filtered.length === 0 && (
             <li className="px-3 py-2 text-xs text-gray-400 text-center">該当なし</li>
           )}
