@@ -36,6 +36,8 @@ export function MoveCombobox({ available, value, onChange, placeholder = '技を
   const [open, setOpen] = useState(false)
   const [highlighted, setHighlighted] = useState(0)
   const [dropDirection, setDropDirection] = useState<'down' | 'up'>('down')
+  /** IME入力中（PC日本語変換の予測候補が dropdown 最上段を隠すのを回避するため） */
+  const [imeActive, setImeActive] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
 
@@ -119,6 +121,8 @@ export function MoveCombobox({ available, value, onChange, placeholder = '技を
           onChange={e => { setQuery(e.target.value); setOpen(true) }}
           onFocus={() => { setOpen(true); setQuery('') }}
           onBlur={() => setTimeout(() => setOpen(false), 150)}
+          onCompositionStart={() => setImeActive(true)}
+          onCompositionEnd={() => setImeActive(false)}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           className="flex-1 px-2 py-1 text-sm bg-transparent outline-none text-gray-800 dark:text-white"
@@ -144,7 +148,9 @@ export function MoveCombobox({ available, value, onChange, placeholder = '技を
 
       {open && (
         <ul className={`absolute z-20 w-full max-h-60 overflow-y-auto bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg ${
-          dropDirection === 'up' ? 'bottom-full mb-1' : 'top-full mt-1'
+          dropDirection === 'up'
+            ? (imeActive ? 'bottom-full mb-14' : 'bottom-full mb-1')
+            : (imeActive ? 'top-full mt-14' : 'top-full mt-1')
         }`}>
           {filtered.length === 0 && (
             <li className="px-3 py-2 text-xs text-gray-400 text-center">該当なし</li>
