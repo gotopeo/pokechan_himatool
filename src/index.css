@@ -381,3 +381,267 @@ body {
 .pdx-screen .rounded {
   border-color: var(--paper-line);
 }
+
+/* スクリーン内のボタンは基本ピクセルフォント */
+.pdx-screen button { font-family: var(--font-pixel); }
+/* 細い枠付きボタン（編集／削除／パーティ等）を立体風に */
+.pdx-screen button.border:not([disabled]):not(.pdx-tab):not(.pdx-btn) {
+  position: relative; top: 0;
+  transition: top 0.06s, box-shadow 0.06s;
+  box-shadow: 0 2px 0 var(--paper-line);
+}
+.pdx-screen button.border:not([disabled]):not(.pdx-tab):not(.pdx-btn):active {
+  top: 2px;
+  box-shadow: 0 0 0 var(--paper-line);
+}
+
+/* =====================================================================
+ * 細部装飾：役割リボン / 金ハロー / LCD / ピクセルダメバー / 羊皮紙ドロップダウン
+ * ===================================================================== */
+
+/* 役割色（リボン用） */
+.pdx-role-mine   { --role-accent: var(--role-mine); }
+.pdx-role-opp    { --role-accent: var(--role-opp); }
+.pdx-role-shared { --role-accent: var(--role-shared); }
+
+/* リボン付きカード — 上端に役割色のストライプ */
+.pdx-ribbon-card {
+  position: relative;
+}
+.pdx-ribbon-card::before {
+  content: "";
+  position: absolute;
+  top: -3px; left: 12px; right: 12px;
+  height: 5px;
+  background: var(--role-accent, var(--ink));
+  border-left: 3px solid var(--ink);
+  border-right: 3px solid var(--ink);
+  border-bottom: 2px solid var(--ink);
+  border-radius: 0 0 4px 4px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* 金色ハロー（選択中の捕獲済み風） */
+.pdx-selected {
+  box-shadow: 0 0 0 3px var(--gold), 0 3px 0 var(--ink) !important;
+}
+
+/* LCD 種族値メーター */
+.pdx-statmeter {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 4px;
+  background: var(--lcd);
+  border: 2.5px solid var(--ink);
+  border-radius: 6px;
+  padding: 4px;
+  box-shadow: var(--shadow-lcd);
+  position: relative;
+}
+.pdx-statmeter::after {
+  content: "";
+  position: absolute; inset: 0;
+  border-radius: 4px;
+  background: repeating-linear-gradient(0deg, transparent 0 2px, rgba(0,0,0,0.03) 2px 3px);
+  pointer-events: none;
+}
+.pdx-stat-cell {
+  display: flex; flex-direction: column; align-items: center;
+  font-family: var(--font-pixel);
+  background: rgba(255,255,255,0.2);
+  border-radius: 3px;
+  padding: 2px 0 4px;
+  position: relative;
+  overflow: hidden;
+}
+.pdx-stat-cell .lbl {
+  font-family: var(--font-arcade);
+  font-size: 7px;
+  color: var(--lcd-text);
+  letter-spacing: 0.05em;
+}
+.pdx-stat-cell .val {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--lcd-text);
+  line-height: 1;
+}
+.pdx-stat-cell .bar {
+  position: absolute; left: 0; bottom: 0;
+  height: 2px;
+  background: var(--role-accent, var(--lcd-deep));
+  border-radius: 0 2px 2px 0;
+}
+
+/* ピクセル風ダメージバー — 16本のグリッドセル */
+.pdx-dmgbar {
+  display: flex; gap: 2px;
+  height: 32px;
+  padding: 4px;
+  background: var(--lcd);
+  border: 2.5px solid var(--ink);
+  border-radius: 6px;
+  box-shadow: var(--shadow-lcd);
+  position: relative;
+}
+.pdx-dmgbar::after {
+  content: "";
+  position: absolute; inset: 0;
+  border-radius: 4px;
+  background: repeating-linear-gradient(0deg, transparent 0 2px, rgba(0,0,0,0.04) 2px 3px);
+  pointer-events: none;
+}
+.pdx-dmgbar-cell {
+  flex: 1;
+  background: rgba(255,255,255,0.15);
+  border-radius: 1px;
+  position: relative;
+  overflow: hidden;
+}
+.pdx-dmgbar-cell .fill {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  background: var(--lcd-deep);
+}
+.pdx-dmgbar-cell.ko .fill {
+  background: var(--red);
+  animation: pdx-blink 0.8s steps(2, end) infinite;
+}
+@keyframes pdx-blink { 50% { opacity: 0.4; } }
+
+/* タイプバッジ — 既存の Tailwind 色クラスに重ねて黒枠＋文字シャドウ */
+.pdx-tbadge {
+  border: 2px solid var(--ink) !important;
+  text-shadow: 1px 1px 0 rgba(0,0,0,0.25);
+  font-family: var(--font-pixel);
+  letter-spacing: 0.02em;
+}
+
+/* 羊皮紙風ドロップダウン項目（PokemonCombobox / MoveCombobox 用） */
+.pdx-screen ul.absolute,
+.pdx-screen ul[class*="absolute"] {
+  background: var(--paper) !important;
+  border-color: var(--ink) !important;
+  border-width: 2.5px;
+  box-shadow: 0 4px 0 var(--paper-line), 0 8px 18px rgba(0,0,0,0.18) !important;
+}
+.pdx-screen ul.absolute li,
+.pdx-screen ul[class*="absolute"] li {
+  font-family: var(--font-pixel);
+}
+.pdx-screen ul.absolute li.bg-blue-100,
+.pdx-screen ul[class*="absolute"] li.bg-blue-100,
+.pdx-screen ul.absolute li[class*="bg-blue-100"],
+.pdx-screen ul[class*="absolute"] li[class*="bg-blue-100"] {
+  background: var(--ink) !important;
+  color: var(--paper) !important;
+  position: relative;
+}
+.pdx-screen ul.absolute li.bg-blue-100::before,
+.pdx-screen ul[class*="absolute"] li[class*="bg-blue-100"]::before {
+  content: "▶";
+  color: var(--red);
+  margin-right: 4px;
+  font-size: 11px;
+}
+
+/* =====================================================================
+ * Command Palette (Cmd+K)
+ * ===================================================================== */
+.pdx-cp-bg {
+  position: fixed; inset: 0;
+  background:
+    radial-gradient(circle at 50% 50%, transparent 0%, rgba(60,10,10,0.55) 100%),
+    repeating-linear-gradient(0deg, rgba(0,0,0,0.08) 0 2px, transparent 2px 4px);
+  z-index: 100;
+  display: flex; align-items: flex-start; justify-content: center;
+  padding-top: 10vh;
+  animation: pdx-fade 0.12s ease;
+}
+@keyframes pdx-fade { from { opacity: 0; } to { opacity: 1; } }
+
+.pdx-cp {
+  width: min(560px, 92vw);
+  background: var(--red);
+  border: 3px solid var(--red-deep);
+  border-radius: 14px;
+  box-shadow: 0 0 0 3px #5d0a0e, 0 16px 50px rgba(60,10,10,0.5);
+  overflow: hidden;
+  padding: 10px;
+  animation: pdx-cp-in 0.18s ease;
+}
+@keyframes pdx-cp-in {
+  from { transform: translateY(-8px) scale(0.98); opacity: 0; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
+}
+.pdx-cp-screen {
+  background: var(--cream);
+  border: 3px solid var(--ink);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.pdx-cp-input-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 14px;
+  background: var(--lcd);
+  border-bottom: 3px solid var(--ink);
+  box-shadow: var(--shadow-lcd);
+  position: relative;
+}
+.pdx-cp-input-row::after {
+  content: "";
+  position: absolute; inset: 0;
+  background: repeating-linear-gradient(0deg, transparent 0 2px, rgba(0,0,0,0.05) 2px 3px);
+  pointer-events: none;
+}
+.pdx-cp-input {
+  flex: 1; background: none; border: none; outline: none;
+  font-family: var(--font-pixel);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--lcd-text);
+  position: relative; z-index: 1;
+}
+.pdx-cp-input::placeholder { color: var(--lcd-deep); }
+.pdx-cp-results {
+  max-height: 50vh;
+  overflow-y: auto;
+  padding: 6px 8px 8px;
+  background: var(--paper);
+}
+.pdx-cp-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  position: relative;
+  font-family: var(--font-pixel);
+  color: var(--ink);
+}
+.pdx-cp-row:hover { background: var(--cream-2); }
+.pdx-cp-row.cursor {
+  background: var(--ink);
+  color: var(--paper);
+}
+.pdx-cp-row.cursor::before {
+  content: "▶";
+  position: absolute; left: -2px;
+  color: var(--red);
+}
+.pdx-cp-foot {
+  display: flex; align-items: center; gap: 12px;
+  padding: 8px 12px;
+  background: var(--cream-2);
+  border-top: 2px solid var(--paper-line);
+  font-family: var(--font-pixel);
+  font-size: 11px;
+  color: var(--ink-soft);
+  flex-wrap: wrap;
+}
+.pdx-cp-empty {
+  padding: 28px 18px;
+  text-align: center;
+  color: var(--ink-mute);
+  font-family: var(--font-pixel);
+  font-size: 13px;
+}

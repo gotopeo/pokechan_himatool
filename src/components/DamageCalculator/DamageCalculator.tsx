@@ -92,24 +92,26 @@ function PokemonChipPicker({ ownMembers, oppMembers, value, onChange }: ChipPick
 
 function DamageBar({ rolls, defHp }: { rolls: number[]; defHp: number }) {
   if (defHp === 0 || rolls.every(r => r === 0)) return null
-  const max = defHp
   return (
     <div className="space-y-1">
-      <div className="flex gap-0.5 h-6">
+      <div className="pdx-dmgbar">
         {rolls.map((r, i) => {
-          const pct = Math.min(r / max * 100, 100)
-          const exceeds = r >= defHp
+          const pct = Math.min(r / defHp * 100, 100)
+          const ko = r >= defHp
           return (
             <div
               key={i}
-              title={`${r} (${Math.round(r / defHp * 100)}%)`}
-              className={`flex-1 rounded-sm ${exceeds ? 'bg-red-500' : 'bg-blue-400'}`}
-              style={{ height: `${pct}%`, alignSelf: 'flex-end' }}
-            />
+              title={`${r} (${Math.round(r / defHp * 100)}%)${ko ? ' — KO' : ''}`}
+              className={`pdx-dmgbar-cell ${ko ? 'ko' : ''}`}
+            >
+              <span className="fill" style={{ height: `${pct}%` }} />
+            </div>
           )
         })}
       </div>
-      <div className="text-xs text-gray-400 text-center">乱数16通りの分布</div>
+      <div className="text-xs text-center" style={{ color: 'var(--ink-mute)', fontFamily: 'var(--font-arcade)', fontSize: 8, letterSpacing: '0.1em' }}>
+        DAMAGE ROLLS (16)
+      </div>
     </div>
   )
 }

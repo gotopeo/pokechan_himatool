@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useParty } from '../../store/party-context'
 import { PokemonCombobox } from '../shared/PokemonCombobox'
 import { TypeBadge } from '../shared/TypeBadge'
+import { StatMeter } from '../shared/StatMeter'
 import { NATURES } from '../../data/natures'
 import { ITEM_NAMES } from '../../data/items'
 import { MoveCombobox } from '../shared/MoveCombobox'
@@ -69,7 +70,11 @@ function RegistryRow({
   const overLimit = total > 66
 
   return (
-    <div className="border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 shadow-sm">
+    <div className={`pdx-ribbon-card pdx-card ${
+      member.usage === 'own' ? 'pdx-role-mine'
+      : member.usage === 'opp' ? 'pdx-role-opp'
+      : 'pdx-role-shared'
+    } ${inParty ? 'pdx-selected' : ''}`}>
       {/* ヘッダー */}
       <div className="flex items-center gap-2 p-3">
         {data?.sprite && (
@@ -257,6 +262,14 @@ function RegistryRow({
               各ステ最大32／合計最大66／1ポイントごとに実数値+1（性格補正は基礎値に乗算）
             </p>
           </div>
+
+          {/* 種族値メーター */}
+          {member.data && (
+            <div>
+              <span className="text-sm text-gray-500 mb-1 block">種族値</span>
+              <StatMeter stats={member.data.stats} />
+            </div>
+          )}
 
           {/* 技 */}
           <div>

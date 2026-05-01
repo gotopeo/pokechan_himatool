@@ -8,6 +8,7 @@ import { PartyEditor } from './components/PartyEditor/PartyEditor'
 import { PokemonRegistry } from './components/PokemonRegistry/PokemonRegistry'
 import { SelectionPredictor } from './components/SelectionPredictor/SelectionPredictor'
 import { PartyShare } from './components/PartyShare/PartyShare'
+import { CommandPalette } from './components/shared/CommandPalette'
 
 type Tab = 'party' | 'registry' | 'type' | 'speed' | 'damage' | 'predict' | 'share'
 
@@ -82,6 +83,9 @@ function AppInner() {
         {tab === 'predict'  && <SelectionPredictor />}
         {tab === 'share'    && <PartyShare />}
       </main>
+
+      {/* グローバル: Cmd+K で起動するコマンドパレット */}
+      <CommandPalette />
     </div>
   )
 }

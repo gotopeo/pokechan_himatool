@@ -30,7 +30,7 @@ export function TypeBadge({ type, size = 'md' }: Props) {
   const cls = TYPE_COLORS[type] ?? 'bg-gray-500 text-white'
   const sizeClass = size === 'sm' ? 'px-1.5 py-0.5 text-xs' : 'px-2 py-0.5 text-sm'
   return (
-    <span className={`inline-block rounded font-bold ${sizeClass} ${cls}`}>
+    <span className={`pdx-tbadge inline-block rounded-full font-bold ${sizeClass} ${cls}`}>
       {type}
     </span>
   )
